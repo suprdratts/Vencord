@@ -622,7 +622,8 @@ const thePlugin = {
     },
 };
 
-export default definePlugin({
+const pluginObj: PluginDef = {
     name: "BD Compatibility Layer",
     ...thePlugin
-} as PluginDef);
+};
+export default definePlugin = [pluginObj];
