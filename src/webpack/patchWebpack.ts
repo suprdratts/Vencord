@@ -208,7 +208,8 @@ define(Function.prototype, "m", {
                         Object.defineProperty(exports, key, {
                             enumerable: true,
                             configurable: true,
-                            get: definition[key],
+                            get: () => definition[key](),
+                            set: v => { definition[key] = () => v; },
                         });
                     }
                 }
@@ -380,7 +381,6 @@ function runFactoryWithWrap(patchedFactory: PatchedModuleFactory, thisArg: unkno
 
     // Restore the original factory in all the module factories objects, discarding our proxy and allowing it to be garbage collected
     defineInWebpackInstances(module.id, originalFactory);
-
     if (wreq == null) {
         if (!wreqFallbackApplied) {
             wreqFallbackApplied = true;

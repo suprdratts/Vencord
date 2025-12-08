@@ -188,7 +188,8 @@ export default definePlugin({
     userProfileBadges: [ContributorBadge, EquicordContributorBadge, UserPluginContributorBadge],
 
     async start() {
-        await loadAllBadges();
+        // await loadBadges();
+
         clearInterval(intervalId);
         intervalId = setInterval(loadAllBadges, 1000 * 60 * 30); // 30 minutes
     },
