@@ -32,18 +32,14 @@ function isNewer($new: string, old: string) {
 }
 
 function patchLatest() {
-    if (process.env.DISABLE_UPDATER_AUTO_PATCHING) return;
-
     try {
         const currentAppPath = dirname(process.execPath);
         const currentVersion = basename(currentAppPath);
         const discordPath = join(currentAppPath, "..");
 
-        const latestVersion = readdirSync(discordPath).reduce((prev, curr) => {
-            return (curr.startsWith("app-") && isNewer(curr, prev))
-                ? curr
-                : prev;
-        }, currentVersion as string);
+        const latestVersion = readdirSync(discordPath)
+            .filter(name => name.startsWith("app-") && statSync(join(discordPath, name)).isDirectory())
+            .reduce((prev, curr) => isNewer(curr, prev) ? curr : prev, currentVersion as string);
 
         if (latestVersion === currentVersion) return;
 
@@ -53,7 +49,7 @@ function patchLatest() {
 
         if (!existsSync(app) || statSync(app).isDirectory()) return;
 
-        console.info("[Vencord] Detected Host Update. Repatching...");
+        console.info("[Equicord] Detected Host Update. Repatching...");
 
         renameSync(app, _app);
         mkdirSync(app);
@@ -63,7 +59,7 @@ function patchLatest() {
         }));
         writeFileSync(join(app, "index.js"), `require(${JSON.stringify(join(__dirname, "patcher.js"))});`);
     } catch (err) {
-        console.error("[Vencord] Failed to repatch latest host update", err);
+        console.error("[Equicord] Failed to repatch latest host update", err);
     }
 }
 

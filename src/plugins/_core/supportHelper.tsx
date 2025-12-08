@@ -16,50 +16,53 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 
+import { sendBotMessage } from "@api/Commands";
 import { isPluginEnabled } from "@api/PluginManager";
 import { definePluginSettings } from "@api/Settings";
 import { getUserSettingLazy } from "@api/UserSettings";
+import { BaseText } from "@components/BaseText";
 import { Card } from "@components/Card";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Flex } from "@components/Flex";
 import { Link } from "@components/Link";
+import { Paragraph } from "@components/Paragraph";
 import { openSettingsTabModal, UpdaterTab } from "@components/settings";
-import { CONTRIB_ROLE_ID, Devs, DONOR_ROLE_ID, KNOWN_ISSUES_CHANNEL_ID, REGULAR_ROLE_ID, SUPPORT_CATEGORY_ID, SUPPORT_CHANNEL_ID, VENBOT_USER_ID, VENCORD_GUILD_ID } from "@utils/constants";
+import { platformName } from "@equicordplugins/equicordHelper/utils";
+import { gitHash, gitHashShort } from "@shared/vencordUserAgent";
+import { CONTRIB_ROLE_ID, Devs, DONOR_ROLE_ID, EQUIBOP_CONTRIB_ROLE_ID, EQUICORD_TEAM, GUILD_ID, SUPPORT_CHANNEL_ID, SUPPORT_CHANNEL_IDS, VC_CONTRIB_ROLE_ID, VC_DONOR_ROLE_ID, VC_GUILD_ID, VC_REGULAR_ROLE_ID, VENCORD_CONTRIB_ROLE_ID } from "@utils/constants";
 import { sendMessage } from "@utils/discord";
 import { Logger } from "@utils/Logger";
 import { Margins } from "@utils/margins";
-import { isPluginDev, tryOrElse } from "@utils/misc";
+import { isAnyPluginDev, isEquicordGuild, isEquicordSupport, isSupportChannel, tryOrElse } from "@utils/misc";
 import { relaunch } from "@utils/native";
 import { onlyOnce } from "@utils/onlyOnce";
 import { makeCodeblock } from "@utils/text";
 import definePlugin from "@utils/types";
 import { checkForUpdates, isOutdated, update } from "@utils/updater";
-import { Channel } from "@vencord/discord-types";
-import { Alerts, Button, ChannelStore, Forms, GuildMemberStore, Parser, PermissionsBits, PermissionStore, RelationshipStore, showToast, Text, Toasts, UserStore } from "@webpack/common";
+import { Alerts, Button, ChannelStore, GuildMemberStore, Parser, PermissionsBits, PermissionStore, RelationshipStore, SelectedChannelStore, showToast, Toasts, UserStore } from "@webpack/common";
 import { JSX } from "react";
 
-import gitHash from "~git-hash";
 import plugins, { PluginMeta } from "~plugins";
 
 import SettingsPlugin from "./settings";
 
-const CodeBlockRe = /```js\n(.+?)```/s;
-
-const AdditionalAllowedChannelIds = [
-    "1024286218801926184", // Vencord > #bot-spam
-];
+const CodeBlockRe = /```snippet\n(.+?)```/s;
 
 const TrustedRolesIds = [
-    CONTRIB_ROLE_ID, // contributor
-    REGULAR_ROLE_ID, // regular
-    DONOR_ROLE_ID, // donor
+    VC_CONTRIB_ROLE_ID, // Vencord Contributor
+    VC_REGULAR_ROLE_ID, // Vencord Regular
+    VC_DONOR_ROLE_ID, // Vencord Donor
+    EQUICORD_TEAM, // Equicord Team
+    DONOR_ROLE_ID, // Equicord Donor
+    CONTRIB_ROLE_ID, // Equicord Contributor
+    EQUIBOP_CONTRIB_ROLE_ID, // Equibop Contributor
+    VENCORD_CONTRIB_ROLE_ID, // Vencord Contributor
 ];
 
 const AsyncFunction = async function () { }.constructor;
 
 const ShowCurrentGame = getUserSettingLazy<boolean>("status", "showCurrentGame")!;
-
-const isSupportAllowedChannel = (channel: Channel) => channel.parent_id === SUPPORT_CATEGORY_ID || AdditionalAllowedChannelIds.includes(channel.id);
+const ShowEmbeds = getUserSettingLazy<boolean>("textAndImages", "renderEmbeds")!;
 
 async function forceUpdate() {
     const outdated = await checkForUpdates();
@@ -77,7 +80,15 @@ async function generateDebugInfoMessage() {
     const client = (() => {
         if (IS_DISCORD_DESKTOP) return `Discord Desktop v${DiscordNative.app.getVersion()}`;
         if (IS_VESKTOP) return `Vesktop v${VesktopNative.app.getVersion()}`;
-        if ("legcord" in window) return `Legcord v${window.legcord.version}`;
+        if (IS_EQUIBOP) {
+            const equibopGitHash = tryOrElse(() => VesktopNative.app.getGitHash?.(), null);
+            if (equibopGitHash) {
+                const shortHash = equibopGitHash.slice(0, 7);
+                return `Equibop v${VesktopNative.app.getVersion()} • [${shortHash}](<https://github.com/Equicord/Equibop/commit/${equibopGitHash}>)`;
+            }
+            return `Equibop v${VesktopNative.app.getVersion()}`;
+        }
+        if ("legcord" in window) return `LegCord v${window.legcord.version}`;
 
         // @ts-expect-error
         const name = typeof unsafeWindow !== "undefined" ? "UserScript" : "Web";
@@ -85,22 +96,34 @@ async function generateDebugInfoMessage() {
     })();
 
     const info = {
-        Vencord:
-            `v${VERSION} • [${gitHash}](<https://github.com/Vendicated/Vencord/commit/${gitHash}>)` +
-            `${SettingsPlugin.additionalInfo} - ${Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(BUILD_TIMESTAMP)}`,
+        Equicord:
+            `v${VERSION} • [${gitHashShort}](<https://github.com/Equicord/Equicord/commit/${gitHash}>)` +
+            `${IS_EQUIBOP ? "" : SettingsPlugin.getVersionInfo()} - ${Intl.DateTimeFormat("en-US", { dateStyle: "medium" }).format(BUILD_TIMESTAMP)}`,
         Client: `${RELEASE_CHANNEL} ~ ${client}`,
-        Platform: navigator.platform
+        Platform: platformName()
     };
 
     if (IS_DISCORD_DESKTOP) {
         info["Last Crash Reason"] = (await tryOrElse(() => DiscordNative.processUtils.getLastCrash(), undefined))?.rendererCrashReason ?? "N/A";
     }
 
+    const potentiallyProblematicPlugins = ([
+        "NoRPC", "NoProfileThemes", "NoMosaic", "NoRoleHeaders", "NoSystemBadge",
+        "AlwaysAnimate", "ClientTheme", "SoundTroll", "Ingtoninator", "NeverPausePreviews",
+    ].filter(Vencord.Plugins.isPluginEnabled) ?? []).sort();
+
+    if (Vencord.Plugins.isPluginEnabled("CustomIdle") && Vencord.Settings.plugins.CustomIdle.idleTimeout === 0) {
+        potentiallyProblematicPlugins.push("CustomIdle");
+    }
+
     const commonIssues = {
-        "Activity Sharing disabled": tryOrElse(() => !ShowCurrentGame.getSetting(), false),
-        "Vencord DevBuild": !IS_STANDALONE,
+        "Activity Sharing Disabled": tryOrElse(() => !ShowCurrentGame.getSetting(), false),
+        "Link Embeds Disabled": tryOrElse(() => !ShowEmbeds.getSetting(), false),
+        "Equicord DevBuild": !IS_STANDALONE,
+        "Equibop DevBuild": IS_EQUIBOP && tryOrElse(() => VesktopNative.app.isDevBuild?.(), false),
         "Has UserPlugins": Object.values(PluginMeta).some(m => m.userPlugin),
-        "More than two weeks out of date": BUILD_TIMESTAMP < Date.now() - 12096e5,
+        ">2 Weeks Outdated": BUILD_TIMESTAMP < Date.now() - 12096e5,
+        [`Potentially Problematic Plugins: ${potentiallyProblematicPlugins.join(", ")}`]: potentiallyProblematicPlugins.length
     };
 
     let content = `>>> ${Object.entries(info).map(([k, v]) => `**${k}**: ${v}`).join("\n")}`;
@@ -125,6 +148,28 @@ function generatePluginList() {
 
     if (enabledUserPlugins.length) {
         content += `**Enabled UserPlugins (${enabledUserPlugins.length}):**\n${makeCodeblock(enabledUserPlugins.join(", "))}`;
+    }
+
+    const user = UserStore.getCurrentUser();
+
+    if (enabledPlugins.length > 100 && !isAnyPluginDev(user.id)) {
+        Alerts.show({
+            title: "You are attempting to get support!",
+            body: <div>
+                <style>
+                    {'[class*="backdrop_"][style*="backdrop-filter"]{backdrop-filter:blur(16px) brightness(0.25) !important;}'}
+                </style>
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: "1rem" }}>
+                    <img src="https://media.tenor.com/QtGqjwBpRzwAAAAi/wumpus-dancing.gif" />
+                </div>
+                <Paragraph>Before you ask for help,</Paragraph>
+                <Paragraph>We do not handle support for users who use 100+ plugins</Paragraph>
+                <Paragraph>issue could be plugin confliction</Paragraph>
+                <Paragraph>try removing some plugins and see if it fixes!</Paragraph>
+            </div>
+        });
+
+        return `${user.username} has more than 100 plugins enabled, please reduce the number of enabled plugins to get support.`;
     }
 
     return content;
@@ -155,26 +200,31 @@ export default definePlugin({
 
     commands: [
         {
-            name: "vencord-debug",
-            description: "Send Vencord debug info",
-            predicate: ctx => isPluginDev(UserStore.getCurrentUser()?.id) || isSupportAllowedChannel(ctx.channel),
+            name: "equicord-debug",
+            description: "Send Equicord debug info",
+            // @ts-ignore
+            predicate: ctx => isAnyPluginDev(UserStore.getCurrentUser()?.id) || isEquicordGuild(ctx?.guild?.id, true),
             execute: async () => ({ content: await generateDebugInfoMessage() })
         },
         {
-            name: "vencord-plugins",
-            description: "Send Vencord plugin list",
-            predicate: ctx => isPluginDev(UserStore.getCurrentUser()?.id) || isSupportAllowedChannel(ctx.channel),
-            execute: () => ({ content: generatePluginList() })
+            name: "equicord-plugins",
+            description: "Send Equicord plugin list",
+            // @ts-ignore
+            predicate: ctx => isAnyPluginDev(UserStore.getCurrentUser()?.id) || isEquicordGuild(ctx?.guild?.id, true),
+            execute: () => {
+                const pluginList = generatePluginList();
+                return { content: typeof pluginList === "string" ? pluginList : "Unable to generate plugin list." };
+            }
         }
     ],
 
     flux: {
         async CHANNEL_SELECT({ channelId }) {
-            const isSupportChannel = channelId === SUPPORT_CHANNEL_ID || ChannelStore.getChannel(channelId)?.parent_id === SUPPORT_CATEGORY_ID;
+            const isSupportChannel = SUPPORT_CHANNEL_IDS.includes(channelId);
             if (!isSupportChannel) return;
 
             const selfId = UserStore.getCurrentUser()?.id;
-            if (!selfId || isPluginDev(selfId)) return;
+            if (!selfId || isAnyPluginDev(selfId)) return;
 
             if (!IS_UPDATER_DISABLED) {
                 await checkForUpdatesOnce().catch(() => { });
@@ -183,10 +233,10 @@ export default definePlugin({
                     return Alerts.show({
                         title: "Hold on!",
                         body: <div>
-                            <Forms.FormText>You are using an outdated version of Vencord! Chances are, your issue is already fixed.</Forms.FormText>
-                            <Forms.FormText className={Margins.top8}>
+                            <Paragraph>You are using an outdated version of Equicord! Chances are, your issue is already fixed.</Paragraph>
+                            <Paragraph className={Margins.top8}>
                                 Please first update before asking for support!
-                            </Forms.FormText>
+                            </Paragraph>
                         </div>,
                         onCancel: () => openSettingsTabModal(UpdaterTab!),
                         cancelText: "View Updates",
@@ -197,18 +247,18 @@ export default definePlugin({
                 }
             }
 
-            const roles = GuildMemberStore.getSelfMember(VENCORD_GUILD_ID)?.roles;
+            const roles = GuildMemberStore.getSelfMember(VC_GUILD_ID)?.roles || GuildMemberStore.getSelfMember(GUILD_ID)?.roles;
             if (!roles || TrustedRolesIds.some(id => roles.includes(id))) return;
 
             if (!IS_WEB && IS_UPDATER_DISABLED) {
                 return Alerts.show({
                     title: "Hold on!",
                     body: <div>
-                        <Forms.FormText>You are using an externally updated Vencord version, which we do not provide support for!</Forms.FormText>
-                        <Forms.FormText className={Margins.top8}>
-                            Please either switch to an <Link href="https://vencord.dev/download">officially supported version of Vencord</Link>, or
-                            contact your package maintainer for support instead.
-                        </Forms.FormText>
+                        <Paragraph>You are using an externally updated Equicord version, the ability to help you here may be limited.</Paragraph>
+                        <Paragraph className={Margins.top8}>
+                            Please join the <Link href="https://equicord.org/discord">Equicord Server</Link> for support,
+                            or if this issue persists on Vencord, continue on.
+                        </Paragraph>
                     </div>
                 });
             }
@@ -217,14 +267,14 @@ export default definePlugin({
                 return Alerts.show({
                     title: "Hold on!",
                     body: <div>
-                        <Forms.FormText>You are using a custom build of Vencord, which we do not provide support for!</Forms.FormText>
+                        <Paragraph>You are using a custom build of Equicord, which we do not provide support for!</Paragraph>
 
-                        <Forms.FormText className={Margins.top8}>
-                            We only provide support for <Link href="https://vencord.dev/download">official builds</Link>.
-                            Either <Link href="https://vencord.dev/download">switch to an official build</Link> or figure your issue out yourself.
-                        </Forms.FormText>
+                        <Paragraph className={Margins.top8}>
+                            We only provide support for <Link href="https://github.com/Equicord/Equicord">official builds</Link>.
+                            Either <Link href="https://github.com/Equicord/Equilotl">switch to an official build</Link> or figure your issue out yourself.
+                        </Paragraph>
 
-                        <Text variant="text-md/bold" className={Margins.top8}>You will be banned from receiving support if you ignore this rule.</Text>
+                        <BaseText size="md" weight="bold" className={Margins.top8}>You will be banned from receiving support if you ignore this rule.</BaseText>
                     </div>,
                     confirmText: "Understood",
                     secondaryConfirmText: "Don't show again",
@@ -237,12 +287,11 @@ export default definePlugin({
     renderMessageAccessory(props) {
         const buttons = [] as JSX.Element[];
 
+        const equicordSupport = isEquicordSupport(props.message.author.id);
+
         const shouldAddUpdateButton =
             !IS_UPDATER_DISABLED
-            && (
-                (props.channel.id === KNOWN_ISSUES_CHANNEL_ID) ||
-                (props.channel.parent_id === SUPPORT_CATEGORY_ID && props.message.author.id === VENBOT_USER_ID)
-            )
+            && ((isSupportChannel(props.channel.id) && equicordSupport))
             && props.message.content?.includes("update");
 
         if (shouldAddUpdateButton) {
@@ -267,27 +316,32 @@ export default definePlugin({
             );
         }
 
-        if (props.channel.parent_id === SUPPORT_CATEGORY_ID && PermissionStore.can(PermissionsBits.SEND_MESSAGES, props.channel)) {
-            if (props.message.content.includes("/vencord-debug") || props.message.content.includes("/vencord-plugins")) {
+        if (isSupportChannel(props.channel.id) && PermissionStore.can(PermissionsBits.SEND_MESSAGES, props.channel) && equicordSupport) {
+            if (props.message.content.includes("/equicord-debug") || props.message.content.includes("/equicord-plugins")) {
                 buttons.push(
                     <Button
                         key="vc-dbg"
                         color={Button.Colors.PRIMARY}
                         onClick={async () => sendMessage(props.channel.id, { content: await generateDebugInfoMessage() })}
                     >
-                        Run /vencord-debug
+                        Run /equicord-debug
                     </Button>,
                     <Button
                         key="vc-plg-list"
                         color={Button.Colors.PRIMARY}
-                        onClick={async () => sendMessage(props.channel.id, { content: generatePluginList() })}
+                        onClick={async () => {
+                            const pluginList = generatePluginList();
+                            if (typeof pluginList === "string") {
+                                sendMessage(props.channel.id, { content: pluginList });
+                            }
+                        }}
                     >
-                        Run /vencord-plugins
+                        Run /equicord-plugins
                     </Button>
                 );
             }
 
-            if (props.message.author.id === VENBOT_USER_ID) {
+            if (equicordSupport) {
                 const match = CodeBlockRe.exec(props.message.content || props.message.embeds[0]?.rawDescription || "");
                 if (match) {
                     buttons.push(
@@ -295,7 +349,14 @@ export default definePlugin({
                             key="vc-run-snippet"
                             onClick={async () => {
                                 try {
-                                    await AsyncFunction(match[1])();
+                                    const result = await AsyncFunction(match[1])();
+                                    const stringed = String(result);
+                                    if (stringed) {
+                                        await sendBotMessage(SelectedChannelStore.getChannelId(), {
+                                            content: stringed
+                                        });
+                                    }
+
                                     showToast("Success!", Toasts.Type.SUCCESS);
                                 } catch (e) {
                                     new Logger(this.name).error("Error while running snippet:", e);
@@ -317,14 +378,14 @@ export default definePlugin({
 
     renderContributorDmWarningCard: ErrorBoundary.wrap(({ channel }) => {
         const userId = channel.getRecipientId();
-        if (!isPluginDev(userId)) return null;
-        if (RelationshipStore.isFriend(userId) || isPluginDev(UserStore.getCurrentUser()?.id)) return null;
+        if (!isAnyPluginDev(userId)) return null;
+        if (RelationshipStore.isFriend(userId) || isAnyPluginDev(UserStore.getCurrentUser()?.id)) return null;
 
         return (
             <Card variant="warning" className={Margins.top8} defaultPadding>
-                Please do not private message Vencord plugin developers for support!
+                Please do not private message Equicord & Vencord plugin developers for support!
                 <br />
-                Instead, use the Vencord support channel: {Parser.parse("https://discord.com/channels/1015060230222131221/1026515880080842772")}
+                Instead, use the support channel: {Parser.parse("https://discord.com/channels/1173279886065029291/1297590739911573585")}
                 {!ChannelStore.getChannel(SUPPORT_CHANNEL_ID) && " (Click the link to join)"}
             </Card>
         );

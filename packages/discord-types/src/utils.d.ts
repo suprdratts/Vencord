@@ -10,7 +10,9 @@ type FluxEventsAutoComplete = LiteralUnion<FluxEvents, string>;
 
 export interface FluxDispatcher {
     _actionHandlers: any;
+    _interceptors: any;
     _subscriptions: any;
+    addInterceptor(interceptor: any): void;
     dispatch(event: { [key: string]: unknown; type: FluxEventsAutoComplete; }): Promise<void>;
     isDispatching(): boolean;
     subscribe(event: FluxEventsAutoComplete, callback: (data: any) => void): void;

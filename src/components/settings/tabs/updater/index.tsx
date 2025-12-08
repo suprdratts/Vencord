@@ -19,24 +19,33 @@
 import { useSettings } from "@api/Settings";
 import { Divider } from "@components/Divider";
 import { FormSwitch } from "@components/FormSwitch";
+import { Heading } from "@components/Heading";
 import { Link } from "@components/Link";
-import { SettingsTab, wrapTab } from "@components/settings/tabs/BaseTab";
+import { Paragraph } from "@components/Paragraph";
+import { SettingsTab, wrapTab } from "@components/settings";
 import { Margins } from "@utils/margins";
 import { useAwaiter } from "@utils/react";
 import { getRepo, isNewer, UpdateLogger } from "@utils/updater";
-import { Forms, React } from "@webpack/common";
+import { React } from "@webpack/common";
 
 import gitHash from "~git-hash";
 
-import { CommonProps, HashLink, Newer, Updatable } from "./Components";
+import { HashLink, Newer, Updatable } from "./Components";
+
+interface CommonProps {
+    repo: string;
+    repoPending: boolean;
+}
 
 function Updater() {
     const settings = useSettings(["autoUpdate", "autoUpdateNotification"]);
 
-    const [repo, err, repoPending] = useAwaiter(getRepo, {
-        fallbackValue: "Loading...",
-        onError: e => UpdateLogger.error("Failed to retrieve repo", err)
-    });
+    const [repo, err, repoPending] = useAwaiter(getRepo, { fallbackValue: "Loading..." });
+
+    React.useEffect(() => {
+        if (err)
+            UpdateLogger.error("Failed to retrieve repo", err);
+    }, [err]);
 
     const commonProps: CommonProps = {
         repo,
@@ -45,23 +54,34 @@ function Updater() {
 
     return (
         <SettingsTab>
+            <Heading className={Margins.top16}>Update Preferences</Heading>
+            <Paragraph className={Margins.bottom20}>
+                Control how Equicord keeps itself up to date. You can choose to update automatically in the background or be notified when new updates are available.
+            </Paragraph>
+
             <FormSwitch
                 title="Automatically update"
-                description="Automatically update Vencord without confirmation prompt"
+                description="When enabled, Equicord will automatically download and install updates in the background without asking for confirmation. You'll need to restart Discord to apply the changes."
                 value={settings.autoUpdate}
                 onChange={(v: boolean) => settings.autoUpdate = v}
+                hideBorder
             />
             <FormSwitch
-                title="Get notified when an automatic update completes"
-                description="Show a notification when Vencord automatically updates"
                 value={settings.autoUpdateNotification}
                 onChange={(v: boolean) => settings.autoUpdateNotification = v}
+                title="Get notified when an automatic update completes"
+                description="Receive a notification when Equicord finishes downloading an update in the background, so you know when to restart Discord."
                 disabled={!settings.autoUpdate}
+                hideBorder
             />
 
-            <Forms.FormTitle tag="h5">Repo</Forms.FormTitle>
+            <Divider className={Margins.top20} />
 
-            <Forms.FormText>
+            <Heading className={Margins.top20}>Repository</Heading>
+            <Paragraph className={Margins.bottom8}>
+                This is the GitHub repository where Equicord fetches updates from.
+            </Paragraph>
+            <Paragraph color="text-subtle">
                 {repoPending
                     ? repo
                     : err
@@ -72,18 +92,13 @@ function Updater() {
                             </Link>
                         )
                 }
-                {" "}
-                (<HashLink hash={gitHash} repo={repo} disabled={repoPending} />)
-            </Forms.FormText>
+                {" "}(<HashLink hash={gitHash} repo={repo} disabled={repoPending} />)
+            </Paragraph>
 
-            <Divider className={Margins.top8 + " " + Margins.bottom8} />
+            <Divider className={Margins.top20} />
 
-            <Forms.FormTitle tag="h5">Updates</Forms.FormTitle>
-
-            {isNewer
-                ? <Newer {...commonProps} />
-                : <Updatable {...commonProps} />
-            }
+            <Heading className={Margins.top20}>Updates</Heading>
+            {isNewer ? <Newer {...commonProps} /> : <Updatable {...commonProps} />}
         </SettingsTab>
     );
 }

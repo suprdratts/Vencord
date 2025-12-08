@@ -65,6 +65,7 @@ export default definePlugin({
     name: "ReviewDB",
     description: "Review other users (Adds a new settings to profiles)",
     authors: [Devs.mantikafasi, Devs.Ven],
+    isModified: true,
 
     settings,
     contextMenus: {
@@ -76,6 +77,7 @@ export default definePlugin({
     },
 
     patches: [
+        // In the user popout. eg: when clicking the name in chat
         {
             find: ".POPOUT,user:",
             replacement: {

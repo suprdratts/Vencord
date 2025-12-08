@@ -28,13 +28,13 @@ import { findComponentByCodeLazy, findStoreLazy } from "@webpack";
 import { GuildMemberStore, RelationshipStore, SelectedChannelStore, Tooltip, TypingStore, UserStore, UserSummaryItem, useStateFromStores } from "@webpack/common";
 
 const ThreeDots = findComponentByCodeLazy(".dots,", "dotRadius:");
-
 const UserGuildSettingsStore = findStoreLazy("UserGuildSettingsStore");
 
 const enum IndicatorMode {
     Dots = 1 << 0,
     Avatars = 1 << 1
 }
+
 
 function getDisplayName(guildId: string, userId: string) {
     const user = UserStore.getUser(userId);
@@ -67,7 +67,7 @@ function TypingIndicator({ channelId, guildId }: { channelId: string; guildId: s
     const myId = UserStore.getCurrentUser()?.id;
 
     const typingUsersArray = Object.keys(typingUsers).filter(id =>
-        id !== myId && !(RelationshipStore.isBlocked(id) && !settings.store.includeBlockedUsers)
+        id !== myId && !(RelationshipStore.isBlocked(id) && !settings.store.includeBlockedUsers) && !(RelationshipStore.isIgnored(id) && !settings.store.includeIgnoredUsers)
     );
     const [a, b, c] = typingUsersArray;
     let tooltipText: string;
@@ -144,6 +144,11 @@ const settings = definePluginSettings({
         description: "Whether to show the typing indicator for muted channels.",
         default: false
     },
+    includeIgnoredUsers: {
+        type: OptionType.BOOLEAN,
+        description: "Whether to show the typing indicator for ignored users.",
+        default: false
+    },
     includeBlockedUsers: {
         type: OptionType.BOOLEAN,
         description: "Whether to show the typing indicator for blocked users.",
@@ -164,20 +169,20 @@ export default definePlugin({
     name: "TypingIndicator",
     description: "Adds an indicator if someone is typing on a channel.",
     authors: [Devs.Nuckyz, Devs.fawn, Devs.Sqaaakoi],
+    isModified: true,
     settings,
 
     patches: [
-        // Normal channel
         {
+            // Normal channel.
             find: "UNREAD_IMPORTANT:",
             replacement: {
                 match: /\.Children\.count.+?:null(?<=,channel:(\i).+?)/,
                 replace: "$&,$self.TypingIndicator($1.id,$1.getGuildId())"
             }
         },
-        // Theads
         {
-            // This is the thread "spine" that shows in the left
+            // Thread "spine" that shows in the left.
             find: "M0 15H2c0 1.6569",
             replacement: {
                 match: /mentionsCount:\i.+?null(?<=channel:(\i).+?)/,

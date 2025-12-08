@@ -5,7 +5,6 @@
  */
 
 import stylistic from "@stylistic/eslint-plugin";
-import pathAlias from "eslint-plugin-path-alias";
 import react from "eslint-plugin-react";
 import header from "eslint-plugin-simple-header";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
@@ -37,8 +36,7 @@ export default tseslint.config(
             "@stylistic": stylistic,
             "@typescript-eslint": tseslint.plugin,
             "simple-import-sort": simpleImportSort,
-            "unused-imports": unusedImports,
-            "path-alias": pathAlias
+            "unused-imports": unusedImports
         },
         settings: {
             "import/resolver": {
@@ -140,8 +138,7 @@ export default tseslint.config(
             // Plugin Rules
             "simple-import-sort/imports": "error",
             "simple-import-sort/exports": "error",
-            "unused-imports/no-unused-imports": "error",
-            "path-alias/no-relative": "error"
+            "unused-imports/no-unused-imports": "error"
         }
     }
 );

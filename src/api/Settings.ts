@@ -39,10 +39,12 @@ export type SettingsPluginUiElements = {
 
 export interface Settings {
     autoUpdate: boolean;
-    autoUpdateNotification: boolean,
+    autoUpdateNotification: boolean;
     useQuickCss: boolean;
     eagerPatches: boolean;
     enabledThemes: string[];
+    enabledThemeLinks: string[];
+    themeNames: Record<string, string>;
     enableReactDevtools: boolean;
     themeLinks: string[];
     frameless: boolean;
@@ -80,6 +82,7 @@ export interface Settings {
         timeout: number;
         position: "top-right" | "bottom-right";
         useNative: "always" | "never" | "not-focused";
+        missed: boolean;
         logLimit: number;
     };
 
@@ -88,6 +91,14 @@ export interface Settings {
         url: string;
         settingsSync: boolean;
         settingsSyncVersion: number;
+    };
+
+    ignoreResetWarning: boolean;
+
+    userCssVars: {
+        [themeId: string]: {
+            [varName: string]: string;
+        };
     };
 }
 
@@ -98,6 +109,8 @@ const DefaultSettings: Settings = {
     themeLinks: [],
     eagerPatches: IS_REPORTER,
     enabledThemes: [],
+    enabledThemeLinks: [],
+    themeNames: {},
     enableReactDevtools: false,
     frameless: false,
     transparent: false,
@@ -116,15 +129,20 @@ const DefaultSettings: Settings = {
         timeout: 5000,
         position: "bottom-right",
         useNative: "not-focused",
+        missed: true,
         logLimit: 50
     },
 
     cloud: {
         authenticated: false,
-        url: "https://api.vencord.dev/",
+        url: "https://cloud.equicord.org/",
         settingsSync: false,
         settingsSyncVersion: 0
-    }
+    },
+
+    ignoreResetWarning: false,
+
+    userCssVars: {}
 };
 
 const settings = !IS_REPORTER ? VencordNative.settings.get() : {} as Settings;
@@ -229,6 +247,21 @@ export function useSettings(paths?: UseSettings<Settings>[]) {
     return SettingsStore.store;
 }
 
+export function migratePluginToSetting(newName: string, oldName: string, settingName: string) {
+    const { plugins } = SettingsStore.plain;
+    const newPlugin = plugins[newName];
+    const oldPlugin = plugins[oldName];
+
+    if (!newPlugin || !oldPlugin) return;
+
+    if (oldPlugin?.enabled) {
+        newPlugin[settingName] = true;
+        oldPlugin.enabled = false;
+        if (!newPlugin?.enabled) newPlugin.enabled = true;
+        SettingsStore.markAsChanged();
+    }
+}
+
 export function migratePluginSettings(name: string, ...oldNames: string[]) {
     const { plugins } = SettingsStore.plain;
     if (name in plugins) return;
@@ -244,7 +277,7 @@ export function migratePluginSettings(name: string, ...oldNames: string[]) {
     }
 }
 
-export function migratePluginSetting(pluginName: string, oldSetting: string, newSetting: string) {
+export function migratePluginSetting(pluginName: string, newSetting: string, oldSetting: string) {
     const settings = SettingsStore.plain.plugins[pluginName];
     if (!settings) return;
 
@@ -252,6 +285,19 @@ export function migratePluginSetting(pluginName: string, oldSetting: string, new
 
     settings[newSetting] = settings[oldSetting];
     delete settings[oldSetting];
+    SettingsStore.markAsChanged();
+}
+
+export function migrateSettingFromPlugin(newPlugin: string, newSetting: string, oldPlugin: string, oldSetting: string) {
+    const newSettings = SettingsStore.plain.plugins[newPlugin];
+    const oldSettings = SettingsStore.plain.plugins[oldPlugin];
+    if (!oldSettings || !Object.hasOwn(oldSettings, oldSetting)) return;
+    if (!newSettings || (Object.hasOwn(newSettings, newSetting))) return;
+
+    if (Object.hasOwn(newSettings, newSetting)) return;
+
+    newSettings[newSetting] = oldSettings[oldSetting];
+    delete oldSettings[oldSetting];
     SettingsStore.markAsChanged();
 }
 
