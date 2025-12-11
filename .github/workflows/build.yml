@@ -7,7 +7,7 @@ on:
 env:
     FORCE_COLOR: true
     GITHUB_TOKEN: ${{ secrets.ETOKEN }}
-    REPO: Equicord/Equibored
+    REPO: suprdratts/Equibored
     USERNAME: GitHub-Actions
 
 permissions:
