@@ -305,7 +305,7 @@ export default definePlugin({
                     return ev2;
                 },
                 get get() {
-                    if (Settings.plugins[thePlugin.name].enableExperimentalRequestPolyfills === true)
+                    if (Settings.plugins['BDCompatLayer'].enableExperimentalRequestPolyfills === true)
                         return this.get_;
                     return undefined;
                 }
@@ -341,7 +341,7 @@ export default definePlugin({
                 return fakeRequest;
             },
             get request() {
-                if (Settings.plugins[thePlugin.name].enableExperimentalRequestPolyfills === true)
+                if (Settings.plugins['BDCompatLayer'].enableExperimentalRequestPolyfills === true)
                     return this.request_;
                 return undefined;
             },
