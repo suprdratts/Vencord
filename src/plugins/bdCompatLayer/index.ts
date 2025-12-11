@@ -40,8 +40,8 @@ import { aquireNative, compat_logger, FSUtils, getDeferred, patchMkdirSync, patc
 //     return target.split(search).join(replacement);
 // };
 
-const thePlugin = {
-    name: PLUGIN_NAME,
+export default definePlugin({
+    name: "BDCompatLayer",
     description: "Converts BD plugins to run in Vencord",
     authors: [
         Devs.Davvy,
@@ -620,10 +620,4 @@ const thePlugin = {
         compat_logger.warn("Restoring buffer...");
         window.Buffer = this.originalBuffer as BufferConstructor;
     },
-};
-
-const pluginObj: PluginDef = {
-    name: "BD Compatibility Layer",
-    ...thePlugin
-};
-export default definePlugin("bdCompatLayer", pluginObj);
+});
