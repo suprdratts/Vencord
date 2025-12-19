@@ -240,10 +240,13 @@ export async function convertPlugin(BetterDiscordPlugin: string, filename: strin
     });
     (window.BdCompatLayer.queuedPlugins as any[]).push(final.myProxy);
 
-    final.internals = wrapBetterDiscordPluginCode(BetterDiscordPlugin, filename);
+    final.internals = wrapBetterDiscordPluginCode(BetterDiscordPlugin, filename, final.name);
     let { exports } = final.internals.module;
     if (typeof exports === "object") {
         exports = exports[final.name] ?? exports.default;
+    }
+    if (typeof exports === "undefined") {
+        exports = final.internals.module.workingTmp;
     }
     try {
         final.instance = exports.prototype ? new exports(final) : exports(final);
@@ -390,8 +393,8 @@ const test_util = (source: string, what: string) => {
 function parseNewMeta(pluginCode: string, filename: string) {
     let lastSuccessfulMetaLine = 0;
     let metaEndLine = 0;
-    const resultMeta = { name: "", id: "", description: "", authors: [] as { id: number, name: string; }[], version: "" };
-    let authorIds = [] as number[];
+    const resultMeta = { name: "", id: "", description: "", authors: [] as { id: bigint, name: string; }[], version: "" };
+    let authorIds = [] as bigint[];
     let authorNames = [] as string[];
 
     try {
@@ -421,7 +424,7 @@ function parseNewMeta(pluginCode: string, filename: string) {
             } else if (element.startsWith("@authorLink")) {
                 // TODO: support this
             } else if (element.startsWith("@authorId")) {
-                authorIds = element.split("@authorId ")[1].split(",").map(x => BigInt(x.trim())) as unknown[] as number[];
+                authorIds = element.split("@authorId ")[1].split(",").map(x => BigInt(x.trim())) as unknown[] as bigint[];
             } else if (element.startsWith("@author")) {
                 authorNames = element.split("@author ")[1].split(",").map(x => x.trim());
             } else if (element !== "" && element.length > 2)
@@ -463,8 +466,9 @@ function parseNewMeta(pluginCode: string, filename: string) {
 
 const WRAPPER_AUTO_DEBUG_ENABLED = true;
 
-function wrapBetterDiscordPluginCode(pluginCode: string, filename: string) {
+function wrapBetterDiscordPluginCode(pluginCode: string, filename: string, pluginName: string) {
     let codeData = pluginCode;
+    codeData += `\nif (typeof module.exports !== "function" && !("default" in module.exports)) { module.workingTmp = eval("${pluginName}"); }`;
     const debugLine = "\ntry{" + codeData + "}catch(e){console.error(e);debugger;}";
     const additionalCode = [
         "const module = { exports: {} };",
@@ -473,6 +477,7 @@ function wrapBetterDiscordPluginCode(pluginCode: string, filename: string) {
         "const __filename=BdApi.Plugins.folder+`/" + filename + "`;",
         "const __dirname=BdApi.Plugins.folder;", // should this be set to `sourcePath`?
         "const DiscordNative={get clipboard() { return window.BdCompatLayer.fakeClipboard; }};",
+        "var process=require('process');", // I hate this
     ];
     codeData =
         "(()=>{" +
