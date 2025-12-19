@@ -20,7 +20,7 @@ import { isPluginEnabled } from "@api/PluginManager";
 import { definePluginSettings } from "@api/Settings";
 import { getUserSettingLazy } from "@api/UserSettings";
 import ErrorBoundary from "@components/ErrorBoundary";
-import VencordToolboxPlugin from "@plugins/vencordToolbox";
+import equicordToolbox from "@equicordplugins/equicordToolbox";
 import { Devs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
 import { findComponentByCodeLazy } from "@webpack";
@@ -43,10 +43,10 @@ const settings = definePluginSettings({
         description: "Where to show the game activity toggle button",
         options: [
             { label: "Next to Mute/Deafen", value: "PANEL", default: true },
-            { label: "Vencord Toolbox", value: "TOOLBOX" }
+            { label: "Equicord Toolbox", value: "TOOLBOX" }
         ],
         get hidden() {
-            return !isPluginEnabled(VencordToolboxPlugin.name);
+            return !isPluginEnabled(equicordToolbox.name);
         }
     }
 });
@@ -86,10 +86,11 @@ function GameActivityToggleButton(props: { nameplate?: any; }) {
     const { location } = settings.use(["location"]);
     const showCurrentGame = ShowCurrentGame.useSetting();
 
-    if (location !== "PANEL" && isPluginEnabled(VencordToolboxPlugin.name)) return null;
+    if (location !== "PANEL" && isPluginEnabled(equicordToolbox.name)) return null;
 
     return (
         <Button
+            className="vc-game-activity"
             tooltipText={showCurrentGame ? "Disable Game Activity" : "Enable Game Activity"}
             icon={Icon}
             role="switch"

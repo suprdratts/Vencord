@@ -18,6 +18,7 @@
 
 import { addMessagePreEditListener, addMessagePreSendListener, removeMessagePreEditListener, removeMessagePreSendListener } from "@api/MessageEvents";
 import { definePluginSettings } from "@api/Settings";
+import { Paragraph } from "@components/Paragraph";
 import { ApngBlendOp, ApngDisposeOp, parseAPNG } from "@utils/apng";
 import { Devs } from "@utils/constants";
 import { getCurrentGuild, getEmojiURL } from "@utils/discord";
@@ -26,7 +27,7 @@ import definePlugin, { OptionType, Patch } from "@utils/types";
 import type { Emoji, Message, Sticker } from "@vencord/discord-types";
 import { StickerFormatType } from "@vencord/discord-types/enums";
 import { findByCodeLazy, findByPropsLazy, findStoreLazy, proxyLazyWebpack } from "@webpack";
-import { Alerts, ChannelStore, DraftType, EmojiStore, FluxDispatcher, Forms, GuildMemberStore, lodash, Parser, PermissionsBits, PermissionStore, StickersStore, UploadHandler, UserSettingsActionCreators, UserStore } from "@webpack/common";
+import { Alerts, ChannelStore, DraftType, EmojiStore, FluxDispatcher, GuildMemberStore, lodash, OverridePremiumTypeStore, Parser, PermissionsBits, PermissionStore, StickersStore, UploadHandler, UserSettingsActionCreators } from "@webpack/common";
 import { applyPalette, GIFEncoder, quantize } from "gifenc";
 import type { ReactElement, ReactNode } from "react";
 
@@ -123,8 +124,13 @@ const settings = definePluginSettings({
         default: true,
         restartNeeded: true
     },
-    useHyperLinks: {
-        description: "Whether to use hyperlinks when sending fake emojis and stickers",
+    useStickerHyperLinks: {
+        description: "Whether to use hyperlinks when sending fake stickers",
+        type: OptionType.BOOLEAN,
+        default: true
+    },
+    useEmojiHyperLinks: {
+        description: "Whether to use hyperlinks when sending fake emojis",
         type: OptionType.BOOLEAN,
         default: true
     },
@@ -380,18 +386,17 @@ export default definePlugin({
     },
 
     get canUseEmotes() {
-        return (UserStore.getCurrentUser().premiumType ?? 0) > 0;
+        return (OverridePremiumTypeStore.getState().premiumTypeActual ?? 0) > 0;
     },
 
     get canUseStickers() {
-        return (UserStore.getCurrentUser().premiumType ?? 0) > 1;
+        return (OverridePremiumTypeStore.getState().premiumTypeActual ?? 0) > 1;
     },
 
     handleProtoChange(proto: any, user: any) {
         try {
             if (proto == null || typeof proto === "string") return;
-
-            const premiumType: number = user?.premium_type ?? UserStore?.getCurrentUser()?.premiumType ?? 0;
+            const premiumType = OverridePremiumTypeStore.getState().premiumTypeActual ?? 0;
 
             if (premiumType !== 2) {
                 proto.appearance ??= AppearanceSettingsActionCreators.create();
@@ -412,7 +417,7 @@ export default definePlugin({
     },
 
     handleGradientThemeSelect(backgroundGradientPresetId: number | undefined, theme: number, original: () => void) {
-        const premiumType = UserStore?.getCurrentUser()?.premiumType ?? 0;
+        const premiumType = OverridePremiumTypeStore.getState().premiumTypeActual ?? 0;
         if (premiumType === 2 || backgroundGradientPresetId == null) return original();
 
         if (!PreloadedUserSettingsActionCreators || !AppearanceSettingsActionCreators || !ClientThemeSettingsActionsCreators || !BINARY_READ_OPTIONS) return;
@@ -798,14 +803,14 @@ export default definePlugin({
                 Alerts.show({
                     title: "Hold on!",
                     body: <div>
-                        <Forms.FormText>
+                        <Paragraph>
                             You are trying to send/edit a message that contains a FakeNitro emoji or sticker,
                             however you do not have permissions to embed links in the current channel.
                             Are you sure you want to send this message? Your FakeNitro items will appear as a link only.
-                        </Forms.FormText>
-                        <Forms.FormText>
+                        </Paragraph>
+                        <Paragraph>
                             You can disable this notice in the plugin settings.
-                        </Forms.FormText>
+                        </Paragraph>
                     </div>,
                     confirmText: "Send Anyway",
                     cancelText: "Cancel",
@@ -848,10 +853,10 @@ export default definePlugin({
                         Alerts.show({
                             title: "Hold on!",
                             body: <div>
-                                <Forms.FormText>
+                                <Paragraph>
                                     You cannot send this message because it contains an animated FakeNitro sticker,
                                     and you do not have permissions to attach files in the current channel. Please remove the sticker to proceed.
-                                </Forms.FormText>
+                                </Paragraph>
                             </div>
                         });
                     } else {
@@ -867,7 +872,7 @@ export default definePlugin({
 
                     const linkText = s.hyperLinkText.replaceAll("{{NAME}}", sticker.name);
 
-                    messageObj.content += `${getWordBoundary(messageObj.content, messageObj.content.length - 1)}${s.useHyperLinks ? `[${linkText}](${url})` : url}`;
+                    messageObj.content += `${getWordBoundary(messageObj.content, messageObj.content.length - 1)}${s.useStickerHyperLinks ? `[${linkText}](${url})` : url}`;
                     extra.stickers!.length = 0;
                 }
             }
@@ -883,11 +888,14 @@ export default definePlugin({
                     const url = new URL(getEmojiURL(emoji.id, emoji.animated, s.emojiSize));
                     url.searchParams.set("size", s.emojiSize.toString());
                     url.searchParams.set("name", emoji.name);
+                    if (emoji.animated) {
+                        url.pathname = url.pathname.replace(".webp", ".gif");
+                    }
 
                     const linkText = s.hyperLinkText.replaceAll("{{NAME}}", emoji.name);
 
                     messageObj.content = messageObj.content.replace(emojiString, (match, offset, origStr) => {
-                        return `${getWordBoundary(origStr, offset - 1)}${s.useHyperLinks ? `[${linkText}](${url})` : url}${getWordBoundary(origStr, offset + match.length)}`;
+                        return `${getWordBoundary(origStr, offset - 1)}${s.useEmojiHyperLinks ? `[${linkText}](${url})` : url}${getWordBoundary(origStr, offset + match.length)}`;
                     });
                 }
             }
@@ -919,7 +927,7 @@ export default definePlugin({
 
                 const linkText = s.hyperLinkText.replaceAll("{{NAME}}", emoji.name);
 
-                return `${getWordBoundary(origStr, offset - 1)}${s.useHyperLinks ? `[${linkText}](${url})` : url}${getWordBoundary(origStr, offset + emojiStr.length)}`;
+                return `${getWordBoundary(origStr, offset - 1)}${s.useEmojiHyperLinks ? `[${linkText}](${url})` : url}${getWordBoundary(origStr, offset + emojiStr.length)}`;
             });
 
             if (hasBypass && !s.disableEmbedPermissionCheck && !hasEmbedPerms(channelId)) {

@@ -190,7 +190,7 @@
 }
 
 .vc-text-btn-danger {
-    color: var(--text-feedback-critical);
+    color: var(--text-feedback-critical, var(--text-feedback-critical));
 }
 
 .vc-text-btn-link {

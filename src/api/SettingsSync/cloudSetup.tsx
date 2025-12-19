@@ -9,36 +9,12 @@ import { showNotification } from "@api/Notifications";
 import { Settings } from "@api/Settings";
 import { Logger } from "@utils/Logger";
 import { openModal } from "@utils/modal";
-import { relaunch } from "@utils/native";
-import { Alerts, OAuth2AuthorizeModal, UserStore } from "@webpack/common";
+import { OAuth2AuthorizeModal, UserStore } from "@webpack/common";
 
 export const logger = new Logger("SettingsSync:CloudSetup", "#39b7e0");
 
 export const getCloudUrl = () => new URL(Settings.cloud.url);
 const getCloudUrlOrigin = () => getCloudUrl().origin;
-
-export async function checkCloudUrlCsp() {
-    if (IS_WEB) return true;
-
-    const { host } = getCloudUrl();
-    if (host === "api.vencord.dev") return true;
-
-    if (await VencordNative.csp.isDomainAllowed(Settings.cloud.url, ["connect-src"])) {
-        return true;
-    }
-
-    const res = await VencordNative.csp.requestAddOverride(Settings.cloud.url, ["connect-src"], "Cloud Sync");
-    if (res === "ok") {
-        Alerts.show({
-            title: "Cloud Integration enabled",
-            body: `${host} has been added to the whitelist. Please restart the app for the changes to take effect.`,
-            confirmText: "Restart now",
-            cancelText: "Later!",
-            onConfirm: relaunch
-        });
-    }
-    return false;
-}
 
 const getUserId = () => {
     const id = UserStore.getCurrentUser()?.id;
@@ -89,8 +65,6 @@ export async function authorizeCloud() {
         Settings.cloud.authenticated = true;
         return;
     }
-
-    if (!await checkCloudUrlCsp()) return;
 
     try {
         const oauthConfiguration = await fetch(new URL("/v1/oauth/settings", getCloudUrl()));

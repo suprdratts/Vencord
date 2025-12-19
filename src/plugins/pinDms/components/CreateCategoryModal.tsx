@@ -5,12 +5,14 @@
  */
 
 import { classNameFactory } from "@api/Styles";
+import { BaseText } from "@components/BaseText";
 import { Divider } from "@components/Divider";
+import { Heading } from "@components/Heading";
 import { DEFAULT_COLOR, SWATCHES } from "@plugins/pinDms/constants";
 import { categoryLen, createCategory, getCategory } from "@plugins/pinDms/data";
 import { ModalContent, ModalFooter, ModalHeader, ModalProps, ModalRoot, openModalLazy } from "@utils/modal";
 import { extractAndLoadChunksLazy, findComponentByCodeLazy } from "@webpack";
-import { Button, ColorPicker, Forms, Text, TextInput, Toasts, useMemo, useState } from "@webpack/common";
+import { Button, ColorPicker, TextInput, Toasts, useMemo, useState } from "@webpack/common";
 
 interface ColorPickerWithSwatchesProps {
     defaultColor: number;
@@ -75,14 +77,14 @@ export function NewCategoryModal({ categoryId, modalProps, initialChannelId }: P
     return (
         <ModalRoot {...modalProps}>
             <ModalHeader>
-                <Text variant="heading-lg/semibold" style={{ flexGrow: 1 }}>{categoryId ? "Edit" : "New"} Category</Text>
+                <BaseText size="lg" weight="semibold" style={{ flexGrow: 1 }}>{categoryId ? "Edit" : "New"} Category</BaseText>
             </ModalHeader>
 
             {/* form is here so when you press enter while in the text input it submits */}
             <form onSubmit={onSave}>
                 <ModalContent className={cl("content")}>
                     <section>
-                        <Forms.FormTitle>Name</Forms.FormTitle>
+                        <Heading>Name</Heading>
                         <TextInput
                             value={name}
                             onChange={e => setName(e)}
@@ -90,7 +92,7 @@ export function NewCategoryModal({ categoryId, modalProps, initialChannelId }: P
                     </section>
                     <Divider />
                     <section>
-                        <Forms.FormTitle>Color</Forms.FormTitle>
+                        <Heading>Color</Heading>
                         <ColorPickerWithSwatches
                             key={category.id}
                             defaultColor={DEFAULT_COLOR}
@@ -122,4 +124,3 @@ export const openCategoryModal = (categoryId: string | null, channelId: string |
         await requireSettingsMenu();
         return modalProps => <NewCategoryModal categoryId={categoryId} modalProps={modalProps} initialChannelId={channelId} />;
     });
-

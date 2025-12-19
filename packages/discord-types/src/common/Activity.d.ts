@@ -15,9 +15,16 @@ export interface ActivityButton {
 }
 
 export interface Activity {
+    created_at?: number;
+    id?: string;
     name: string;
     application_id: string;
     type: ActivityType;
+    emoji?: {
+        animated: boolean;
+        id: string;
+        name: string;
+    };
     state?: string;
     state_url?: string;
     details?: string;
@@ -34,6 +41,7 @@ export interface Activity {
     metadata?: {
         button_urls?: Array<string>;
     };
+    platform?: string;
     party?: {
         id?: string;
         size?: [number, number];

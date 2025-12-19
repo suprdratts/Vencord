@@ -8,17 +8,16 @@ import { showNotification } from "@api/Notifications";
 import { PlainSettings, Settings } from "@api/Settings";
 import { Logger } from "@utils/Logger";
 import { relaunch } from "@utils/native";
+import { openUserSettingsPanel } from "@webpack/common";
 import { deflateSync, inflateSync } from "fflate";
 
-import { checkCloudUrlCsp, deauthorizeCloud, getCloudAuth, getCloudUrl } from "./cloudSetup";
+import { deauthorizeCloud, getCloudAuth, getCloudUrl } from "./cloudSetup";
 import { exportSettings, importSettings } from "./offline";
 
 const logger = new Logger("SettingsSync:Cloud", "#39b7e0");
 
 export async function putCloudSettings(manual?: boolean) {
-    const settings = await exportSettings({ minify: true });
-
-    if (!await checkCloudUrlCsp()) return;
+    const settings = await exportSettings({ syncDataStore: false, minify: true });
 
     try {
         const res = await fetch(new URL("/v1/settings", getCloudUrl()), {
@@ -64,8 +63,6 @@ export async function putCloudSettings(manual?: boolean) {
 }
 
 export async function getCloudSettings(shouldNotify = true, force = false) {
-    if (!await checkCloudUrlCsp()) return;
-
     try {
         const res = await fetch(new URL("/v1/settings", getCloudUrl()), {
             method: "GET",
@@ -75,6 +72,19 @@ export async function getCloudSettings(shouldNotify = true, force = false) {
                 "If-None-Match": Settings.cloud.settingsSyncVersion.toString()
             },
         });
+
+        if (res.status === 401) {
+            // User switched to an account that isn't connected to cloud
+            showNotification({
+                title: "Cloud Settings",
+                body: "Cloud sync was disabled because this account isn't connected to the cloud App. You can enable it again by connecting this account in Cloud Settings. (note: it will store your preferences separately)",
+                color: "var(--yellow-360)",
+                onClick: () => openUserSettingsPanel("equicord_cloud")
+            });
+            // Disable cloud sync globally
+            Settings.cloud.authenticated = false;
+            return false;
+        }
 
         if (res.status === 404) {
             logger.info("No settings on the cloud");
@@ -125,7 +135,7 @@ export async function getCloudSettings(shouldNotify = true, force = false) {
         const data = await res.arrayBuffer();
 
         const settings = new TextDecoder().decode(inflateSync(new Uint8Array(data)));
-        await importSettings(settings);
+        await importSettings(settings, "all", true);
 
         // sync with server timestamp instead of local one
         PlainSettings.cloud.settingsSyncVersion = written;
@@ -155,8 +165,6 @@ export async function getCloudSettings(shouldNotify = true, force = false) {
 }
 
 export async function deleteCloudSettings() {
-    if (!await checkCloudUrlCsp()) return;
-
     try {
         const res = await fetch(new URL("/v1/settings", getCloudUrl()), {
             method: "DELETE",
@@ -190,8 +198,6 @@ export async function deleteCloudSettings() {
 }
 
 export async function eraseAllCloudData() {
-    if (!await checkCloudUrlCsp()) return;
-
     const res = await fetch(new URL("/v1/", getCloudUrl()), {
         method: "DELETE",
         headers: { Authorization: await getCloudAuth() }

@@ -19,7 +19,7 @@
 import { Devs, IS_MAC } from "@utils/constants";
 import definePlugin from "@utils/types";
 import { findByPropsLazy } from "@webpack";
-import { ComponentDispatch, FluxDispatcher, NavigationRouter, SelectedGuildStore, SettingsRouter } from "@webpack/common";
+import { ComponentDispatch, FluxDispatcher, NavigationRouter, openUserSettingsPanel, SelectedGuildStore } from "@webpack/common";
 
 const KeyBinds = findByPropsLazy("JUMP_TO_GUILD", "SERVER_NEXT");
 
@@ -35,7 +35,7 @@ export default definePlugin({
         if (hasCtrl) switch (e.key) {
             case "t":
             case "T":
-                if (!IS_VESKTOP) return;
+                if (!IS_VESKTOP && !IS_EQUIBOP) return;
                 e.preventDefault();
                 if (e.shiftKey) {
                     if (SelectedGuildStore.getGuildId()) NavigationRouter.transitionToGuild("@me");
@@ -49,13 +49,13 @@ export default definePlugin({
                 }
                 break;
             case "Tab":
-                if (!IS_VESKTOP) return;
+                if (!IS_VESKTOP && !IS_EQUIBOP) return;
                 const handler = e.shiftKey ? KeyBinds.SERVER_PREV : KeyBinds.SERVER_NEXT;
                 handler.action(e);
                 break;
             case ",":
                 e.preventDefault();
-                SettingsRouter.open("My Account");
+                openUserSettingsPanel("my_account");
                 break;
             default:
                 if (e.key >= "1" && e.key <= "9") {

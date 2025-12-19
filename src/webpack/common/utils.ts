@@ -48,6 +48,10 @@ export const moment: typeof import("moment") = findByPropsLazy("parseTwoDigitYea
 
 export const hljs: typeof import("highlight.js").default = findByPropsLazy("highlight", "registerLanguage");
 
+export const useDrag = findByCodeLazy("useDrag::spec.begin was deprecated");
+// you cant make a better finder i love that they remove display names sm
+export const useDrop = findByCodeLazy(".options);return", ".collect,");
+
 export const { match, P }: { match: typeof TSPattern["match"], P: typeof TSPattern["P"]; } = mapMangledModuleLazy("@ts-pattern/matcher", {
     match: filters.byCode("return new"),
     P: filters.byProps("when")
@@ -124,7 +128,6 @@ waitFor("showToast", m => {
     Toasts.create = m.createToast;
 });
 
-
 /**
  * Show a simple toast. If you need more options, use Toasts.show manually
  */
@@ -172,13 +175,26 @@ export const { zustandPersist } = mapMangledModuleLazy(".onRehydrateStorage)?", 
     zustandPersist: filters.byCode(/(\(\i,\i\))=>.+?\i\1/)
 });
 
+export const { openUserSettings } = findByPropsLazy("openUserSettings");
+export function openUserSettingsPanel(panel: string) {
+    openUserSettings(panel + "_panel");
+}
+
 export const MessageActions = findByPropsLazy("editMessage", "sendMessage");
 export const MessageCache = findByPropsLazy("clearCache", "_channelMessages");
 export const UserProfileActions = findByPropsLazy("openUserProfileModal", "closeUserProfileModal");
 export const InviteActions = findByPropsLazy("resolveInvite");
 export const ChannelActionCreators = findByPropsLazy("openPrivateChannel");
 
+export const VoiceActions = findByPropsLazy("toggleSelfMute");
+export const GuildActions = findByPropsLazy("setServerMute", "setServerDeaf");
+export const ChannelActions = findByPropsLazy("selectChannel", "selectVoiceChannel");
+
 export const IconUtils: t.IconUtils = findByPropsLazy("getGuildBannerURL", "getUserAvatarURL");
+
+export const ReadStateUtils = mapMangledModuleLazy('type:"ENABLE_AUTOMATIC_ACK",', {
+    ackChannel: filters.byCode(".isForumLikeChannel(")
+});
 
 export const ExpressionPickerStore: t.ExpressionPickerStore = mapMangledModuleLazy("expression-picker-last-active-view", {
     openExpressionPicker: filters.byCode(/setState\({activeView:(?:(?!null)\i),activeViewType:/),
@@ -210,3 +226,5 @@ export const DateUtils: t.DateUtils = mapMangledModuleLazy("millisecondsInUnit:"
 });
 
 export const MessageTypeSets: t.MessageTypeSets = findByPropsLazy("REPLYABLE", "FORWARDABLE");
+
+export const fetchApplicationsRPC = findByCodeLazy('"Invalid Origin"', ".application");
