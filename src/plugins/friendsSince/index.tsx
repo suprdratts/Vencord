@@ -66,7 +66,7 @@ export default definePlugin({
                 >
                     <BaseText size="sm">
                         {getCreatedAtDate(friendsSince, locale.getLocale())}
-                    </Text>
+                    </BaseText>
                 </Section>
             );
         }
