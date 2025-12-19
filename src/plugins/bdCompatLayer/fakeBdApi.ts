@@ -23,16 +23,16 @@ const VenComponents = OptionComponentMap;
 import { OptionComponentMap } from "@components/settings/tabs/plugins/components";
 import { ModalAPI } from "@utils/modal";
 import { OptionType, PluginOptionBase, PluginOptionComponent, PluginOptionCustom, PluginOptionSelect, PluginOptionSlider } from "@utils/types";
-import { Forms, lodash, Text, React, Toasts } from "@webpack/common";
+import { findLazy, fluxStores } from "@webpack";
+import { Forms, lodash, React, Text, Toasts } from "@webpack/common";
 
 import { ColorPickerSettingComponent } from "./components/ColorPickerSetting";
 import { PLUGIN_NAME } from "./constants";
 import { fetchWithCorsProxyFallback } from "./fakeStuff";
 import { AssembledBetterDiscordPlugin } from "./pluginConstructor";
 import { getModule as BdApi_getModule, monkeyPatch as BdApi_monkeyPatch, Patcher, ReactUtils_filler, wrapFilter } from "./stuffFromBD";
-import { addLogger, compat_logger, createTextForm, docCreateElement, ObjectMerger } from "./utils";
-import { findLazy, fluxStores } from "@webpack";
 import { BdApi_mapObject } from "./stuffFromBD_2";
+import { addLogger, compat_logger, createTextForm, docCreateElement, ObjectMerger } from "./utils";
 
 function getDefaultKey(module: any) {
     if (!module.exports) return undefined;
@@ -293,7 +293,7 @@ export const WebpackHolder = {
         // return result;
         return Vencord.Webpack.wreq.m;
     },
-    getMangled(f, m, opt = {}) {
+    getMangled(f, m, opt: { raw?: boolean; } = {}) {
         const { raw = false, ...rest } = opt;
         if (typeof f === "string" || f instanceof RegExp) {
             f = WebpackHolder.Filters.bySource(f);
@@ -828,12 +828,12 @@ export const UIHolder = {
                             stickToMarkers?: boolean,
                             min?: number,
                             max?: number,
-                            markers?: (number | { label: string, value: number })[],
+                            markers?: (number | { label: string, value: number; })[],
                         };
 
                         if (currentAsSliderCompatible.markers) {
                             if (typeof currentAsSliderCompatible.markers[0] === "object") {
-                                fakeOptionAsSlider.markers = currentAsSliderCompatible.markers.map(x => (x as { label: string, value: number }).value);
+                                fakeOptionAsSlider.markers = currentAsSliderCompatible.markers.map(x => (x as { label: string, value: number; }).value);
                             } else {
                                 fakeOptionAsSlider.markers = currentAsSliderCompatible.markers as number[];
                             }

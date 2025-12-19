@@ -1,17 +1,14 @@
-namespace Webpack {
-    export type ExportedOnlyFilter = Function;
-};
-
 /* eslint-disable simple-header/header */
-/* eslint-disable eqeqeq */
-/* eslint-disable no-prototype-builtins */
 /* globals BdApi window document Vencord */
 /* eslint no-undef:error */
 /**
  * This file contains code taken from https://github.com/BetterDiscord/BetterDiscord
  * @see https://github.com/BetterDiscord/BetterDiscord/blob/main/LICENSE
  */
-!function () { };
+
+namespace Webpack {
+    export type ExportedOnlyFilter = Function;
+}
 
 /**
  * @summary Code taken from BetterDiscord (sourced from commit: c10d0b67c0fd53fee582cf5b8bc4779e80006983

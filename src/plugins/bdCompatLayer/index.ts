@@ -20,10 +20,18 @@
 /* eslint-disable eqeqeq */
 // import { readFileSync } from "fs";
 // const process = require("~process");
+// String.prototype.replaceAll = function (search, replacement) {
+//     var target = this;
+//     return target.split(search).join(replacement);
+// };
 import { Settings } from "@api/Settings";
 import { copyToClipboard } from "@utils/clipboard";
 import definePlugin, { OptionType, PluginDef } from "@utils/types";
 import { React } from "@webpack/common";
+import { Backend, configureSingle, fs as ZenFS_fs, InMemory, MountConfiguration } from "@zenfs/core";
+import * as ZenFS_path from "@zenfs/core/path";
+import { IndexedDB as ZenFS_IndexedDB, WebStorage as ZenFS_WebStorage } from "@zenfs/dom";
+import { RealFs, RealFSClient } from "real-fs-client";
 
 import { PluginMeta } from "~plugins";
 
@@ -34,14 +42,6 @@ import { injectSettingsTabs, unInjectSettingsTab } from "./fileSystemViewer";
 import { addCustomPlugin, convertPlugin, removeAllCustomPlugins } from "./pluginConstructor";
 import { ReactUtils_filler } from "./stuffFromBD";
 import { compat_logger, FSUtils, getDeferred, reloadCompatLayer, simpleGET, ZIPUtils } from "./utils";
-// String.prototype.replaceAll = function (search, replacement) {
-//     var target = this;
-//     return target.split(search).join(replacement);
-// };
-import { Backend, configureSingle, InMemory, MountConfiguration, fs as ZenFS_fs } from "@zenfs/core";
-import { RealFSClient, RealFs } from "real-fs-client";
-import { IndexedDB as ZenFS_IndexedDB, WebStorage as ZenFS_WebStorage } from "@zenfs/dom";
-import * as ZenFS_path from "@zenfs/core/path";
 
 async function checkCorsProxyUrlCsp() {
     if (IS_WEB) return true;
@@ -316,7 +316,7 @@ const thePlugin = {
                 const Original = FakeEventEmitter;
                 const Copy = class extends Original { };
                 Object.defineProperty(Copy, "EventEmitter", { value: Copy });
-                return Copy as typeof Copy & { EventEmitter: typeof FakeEventEmitter };
+                return Copy as typeof Copy & { EventEmitter: typeof FakeEventEmitter; };
             },
             electron: {},
             process: {
