@@ -14,6 +14,7 @@
             "esnext.symbol"
         ],
         "module": "esnext",
+        "allowImportingTsExtensions": true,
         "moduleResolution": "bundler",
         "strict": true,
         "noImplicitAny": false,
@@ -65,7 +66,7 @@
                 "afterDeclarations": true
             }
         ],
-        "outDir": "who-fucking-cares-dude"
+        "outDir": "who-cares-dude"
     },
     "include": [
         "src/**/*",
