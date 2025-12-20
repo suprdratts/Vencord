@@ -168,7 +168,7 @@ function makeTab() {
     // const getSizeOfRoot = async () => {
     // }
 
-    return <SettingsTab /* title={TabName} */>
+    return <SettingsTab /* title={TabName} */ /* @ts-expect-error */>
         <Forms.FormSection title="File System Actions">
             <QuickActionCard>
                 <QuickAction text="Export Filesystem as ZIP" action={() => ZIPUtils.downloadZip()} Icon={FolderIcon} />

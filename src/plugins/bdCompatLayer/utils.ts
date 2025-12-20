@@ -611,12 +611,8 @@ export function patchReadFileSync(fs) {
 }
 
 export function aquireNative() {
-    try {
-        return Object.values(VencordNative.pluginHelpers)
-            .find(m => m.bdCompatLayerUniqueId) as PluginNative<typeof import("./native")>;
-    } catch {
-        return null;
-    }
+    return Object.values(VencordNative.pluginHelpers) // @ts-expect-error
+        .find(m => m.bdCompatLayerUniqueId) as PluginNative<typeof import("./native")>;
 }
 
 export const ObjectMerger = {
