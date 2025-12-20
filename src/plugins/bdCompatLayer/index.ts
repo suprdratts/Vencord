@@ -26,7 +26,7 @@
 // };
 import { Settings } from "@api/Settings";
 import { copyToClipboard } from "@utils/clipboard";
-import definePlugin, { OptionType, PluginDef } from "@utils/types";
+import definePlugin, { OptionType } from "@utils/types";
 import { React } from "@webpack/common";
 import { Backend, configureSingle, fs as ZenFS_fs, InMemory, MountConfiguration } from "@zenfs/core";
 import * as ZenFS_path from "@zenfs/core/path";
@@ -43,24 +43,7 @@ import { addCustomPlugin, convertPlugin, removeAllCustomPlugins } from "./plugin
 import { ReactUtils_filler } from "./stuffFromBD";
 import { compat_logger, FSUtils, getDeferred, reloadCompatLayer, simpleGET, ZIPUtils } from "./utils";
 
-async function checkCorsProxyUrlCsp() {
-    if (IS_WEB) return true;
-
-    const current = Settings.plugins[PLUGIN_NAME].corsProxyUrl ?? thePlugin.options.corsProxyUrl.default;
-    if (await VencordNative.csp.isDomainAllowed(current, ["connect-src"])) {
-        compat_logger.debug("CSP for CORS Proxy is allowed");
-        return true;
-    }
-
-    const res = await VencordNative.csp.requestAddOverride(current, ["connect-src"], "BD Compat Layer: CORS Proxy");
-    if (res === "ok") {
-        compat_logger.debug("CSP for CORS Proxy is allowed from now");
-        return true;
-    }
-    return false;
-}
-
-const thePlugin = {
+export default definePlugin({
     name: PLUGIN_NAME,
     description: "Converts BD plugins to run in Vencord",
     authors: [
@@ -162,6 +145,22 @@ const thePlugin = {
         // const proxyUrl = "https://api.allorigins.win/raw?url=";
         // const proxyUrl = "https://cors-get-proxy.sirjosh.workers.dev/?url=";
         const proxyUrl = Settings.plugins[this.name].corsProxyUrl ?? this.options.corsProxyUrl.default;
+        async function checkCorsProxyUrlCsp() {
+            if (IS_WEB) return true;
+
+            const current = Settings.plugins[PLUGIN_NAME].corsProxyUrl ?? proxyUrl;
+            if (await VencordNative.csp.isDomainAllowed(current, ["connect-src"])) {
+                compat_logger.debug("CSP for CORS Proxy is allowed");
+                return true;
+            }
+
+            const res = await VencordNative.csp.requestAddOverride(current, ["connect-src"], "BD Compat Layer: CORS Proxy");
+            if (res === "ok") {
+                compat_logger.debug("CSP for CORS Proxy is allowed from now");
+                return true;
+            }
+            return false;
+        }
         // eslint-disable-next-line no-prototype-builtins
         if (!Settings.plugins[this.name].hasOwnProperty("pluginsStatus")) {
             Settings.plugins[this.name].pluginsStatus = this.options.pluginsStatus.default;
@@ -272,7 +271,7 @@ const thePlugin = {
                     return ev2;
                 },
                 get get() {
-                    if (Settings.plugins[thePlugin.name].enableExperimentalRequestPolyfills === true)
+                    if (Settings.plugins[PLUGIN_NAME].enableExperimentalRequestPolyfills === true)
                         return this.get_;
                     return undefined;
                 }
@@ -308,7 +307,7 @@ const thePlugin = {
                 return fakeRequest;
             },
             get request() {
-                if (Settings.plugins[thePlugin.name].enableExperimentalRequestPolyfills === true)
+                if (Settings.plugins[PLUGIN_NAME].enableExperimentalRequestPolyfills === true)
                     return this.request_;
                 return undefined;
             },
@@ -598,10 +597,4 @@ const thePlugin = {
         compat_logger.warn("Restoring buffer...");
         window.Buffer = this.originalBuffer as BufferConstructor;
     },
-};
-
-export default definePlugin({
-    // @ts-expect-error
-    name: "BD Compatibility Layer",
-    ...thePlugin
-} as PluginDef);
+});
