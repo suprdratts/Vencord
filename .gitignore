@@ -22,7 +22,8 @@ lerna-debug.log*
 *.tsbuildinfo
 
 .modules/
-src/userplugins
+!src/userplugins
+
 
 ExtensionCache/
 /settings
