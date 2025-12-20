@@ -26,7 +26,7 @@
 // };
 import { Settings } from "@api/Settings";
 import { copyToClipboard } from "@utils/clipboard";
-import { Devs } from "@utils/constants";
+import { EquicordDevs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
 import { React } from "@webpack/common";
 import { Backend, configureSingle, fs as ZenFS_fs, InMemory, MountConfiguration } from "@zenfs/core";
@@ -47,7 +47,7 @@ import { compat_logger, FSUtils, getDeferred, reloadCompatLayer, simpleGET, ZIPU
 export default definePlugin({
     name: "BD Compatibility Layer",
     description: "Converts BD plugins to run in Vencord",
-    authors: [Devs.Davilarek, Devs.zrodevkaan],
+    authors: [EquicordDevs.Davilarek, EquicordDevs.zrodevkaan],
     // patches: [
     //     {
     //         match: (/(\w+)\.\w+\s*=\s*function\(\w+\,\w+\){for\(var\s+\w\s+in\s\w+\)\w\.o\(\w,\w\)&&!\w\.o\(\w,\w\)&&Object.defineProperty\(\w,\w,{enumerable:!0,get:\w\[\w\]}\)}/.toString()),
