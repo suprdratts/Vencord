@@ -17,7 +17,8 @@
 */
 
 import { wreq } from "@webpack";
-import { addLogger, compat_logger, evalInScope, findFirstLineWithoutX } from "./utils";
+
+import { compat_logger, evalInScope } from "./utils";
 
 export const TARGET_HASH = "df5c2887eb5eddb8d9f3e470b51cdfa5cec814db";
 export const TARGET_CONTEXT_MENU_NEW_HASH = "c10d0b67c0fd53fee582cf5b8bc4779e80006983";
@@ -71,53 +72,53 @@ export const addDiscordModules = async proxyUrl => {
 
 function javascriptifyContextMenuModule(rawSourceCode: string) {
     let code = rawSourceCode;
-    code = code.replace(/^\s*import\s+[^\n;]+;\s*/mg, '');
-    code = code.replace(/export\s+default\s+ContextMenu\s*;/g, 'return ContextMenu;');
+    code = code.replace(/^\s*import\s+[^\n;]+;\s*/mg, "");
+    code = code.replace(/export\s+default\s+ContextMenu\s*;/g, "return ContextMenu;");
 
-    code = code.replace(/\s+as\s+[A-Za-z0-9_$\.]+\b/g, '');
+    code = code.replace(/\s+as\s+[A-Za-z0-9_$.]+\b/g, "");
 
-    code = code.replace(/([A-Za-z0-9_$\)\]\}])!(?=[\s;,\)\]\}])/g, '$1');
+    code = code.replace(/([A-Za-z0-9_$)\]}])!(?=[\s;,)\]}])/g, "$1");
 
-    code = code.replace(/\bmenuItemsId!/g, 'menuItemsId');
+    code = code.replace(/\bmenuItemsId!/g, "menuItemsId");
 
-    code = code.replace(/(\.\.\.\s*[A-Za-z0-9_$]+)\s*:\s*any\[\]\s*/g, '$1');
+    code = code.replace(/(\.\.\.\s*[A-Za-z0-9_$]+)\s*:\s*any\[\]\s*/g, "$1");
 
-    code = code.replace(/:\s*any\[\]/g, '');
-    code = code.replace(/:\s*any\b/g, '');
+    code = code.replace(/:\s*any\[\]/g, "");
+    code = code.replace(/:\s*any\b/g, "");
 
-    code = code.replace(/:\s*(any|object|string|boolean|number|Error|unknown|JSX\.Element)\b/g, '');
+    code = code.replace(/:\s*(any|object|string|boolean|number|Error|unknown|JSX\.Element)\b/g, "");
 
-    code = code.replace(/([A-Za-z0-9_$\.\[\]'"]+)\s*\?\?=\s*([^;]+);/g, 'if ($1 == null) $1 = $2;');
+    code = code.replace(/([A-Za-z0-9_$.[\]'"]+)\s*\?\?=\s*([^;]+);/g, "if ($1 == null) $1 = $2;");
 
     code = code.replace(/res\.props\.\s*children\?\.\s*props\.\s*navId/g,
-        'res.props && res.props.children && res.props.children.props && res.props.children.props.navId');
+        "res.props && res.props.children && res.props.children.props && res.props.children.props.navId");
 
     code = code.replace(/res\?\.\s*props\.\s*children\?\.\s*props\.\s*navId/g,
-        'res.props && res.props.children && res.props.children.props && res.props.children.props.navId');
+        "res.props && res.props.children && res.props.children.props && res.props.children.props.navId");
 
-    code = code.replace(/typeof\s+res\?\.\s*type\s*===\s*("function"|'function')/g, 'res && typeof res.type === $1');
+    code = code.replace(/typeof\s+res\?\.\s*type\s*===\s*("function"|'function')/g, "res && typeof res.type === $1");
 
-    code = code.replace(/res\?\.\s*props\.navId/g, 'res && res.props && res.props.navId');
+    code = code.replace(/res\?\.\s*props\.navId/g, "res && res.props && res.props.navId");
 
-    code = code.replace(/res\?\.\s*type/g, 'res && res.type');
+    code = code.replace(/res\?\.\s*type/g, "res && res.type");
 
-    code = code.replace(/typeof\s+res\s*&&\s*res\.type\s*===\s*("function"|'function')/g, 'res && typeof res.type === $1');
+    code = code.replace(/typeof\s+res\s*&&\s*res\.type\s*===\s*("function"|'function')/g, "res && typeof res.type === $1");
 
-    code = code.replace(/\/\/ eslint-disable-next-line react-hooks\/rules-of-hooks\s*/g, '');
+    code = code.replace(/\/\/ eslint-disable-next-line react-hooks\/rules-of-hooks\s*/g, "");
 
-    code = code.replace(/startupComplete\s*&&=\s*([^;]+);/g, 'startupComplete = startupComplete && ($1);');
+    code = code.replace(/startupComplete\s*&&=\s*([^;]+);/g, "startupComplete = startupComplete && ($1);");
 
-    code = code.replace(/:\s*[A-Za-z0-9_$]+\[\]/g, '');
+    code = code.replace(/:\s*[A-Za-z0-9_$]+\[\]/g, "");
 
-    code = code.trim() + '\n';
+    code = code.trim() + "\n";
 
     const wrappedCode = `(function(Filters, getByKeys, getMangled, getModule, webpackRequire, Patcher, Logger, React) {
 "use strict";
 ${code}
 })`;
     return new Function(
-        'Filters', 'getByKeys', 'getMangled', 'getModule', 'webpackRequire',
-        'Patcher', 'Logger', 'React',
+        "Filters", "getByKeys", "getMangled", "getModule", "webpackRequire",
+        "Patcher", "Logger", "React",
         `return ${wrappedCode}`
     );
 }

@@ -43,5 +43,5 @@ export function ColorPickerSettingComponent(props: SettingProps<PluginSettingCom
         />
         {/* </div>*/}
         {/* </div>);*/}
-    </SettingsSection>
+    </SettingsSection>;
 }
