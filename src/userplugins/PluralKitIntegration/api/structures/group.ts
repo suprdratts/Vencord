@@ -32,7 +32,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import axios from "axios";
 import tc, { Instance } from "tinycolor2";
 import validUrl from "valid-url";
 
@@ -41,12 +40,12 @@ import { validatePrivacy, verify } from "../utils";
 import Member from "./member";
 
 export const enum GroupPrivacyKeys {
-    Name = 			"name_privacy",
-    Description = 	"description_privacy",
-    Icon = 			"icon_privacy",
-    List = 			"list_privacy",
-    Metadata = 		"metadata_privacy",
-    Visibility = 	"visibility",
+    Name = "name_privacy",
+    Description = "description_privacy",
+    Icon = "icon_privacy",
+    List = "list_privacy",
+    Metadata = "metadata_privacy",
+    Visibility = "visibility",
 }
 
 const pKeys = [
@@ -68,9 +67,9 @@ export interface GroupPrivacy {
 }
 
 const KEYS: any = {
-    id: { },
-    uuid: { },
-    system: { },
+    id: {},
+    uuid: {},
+    system: {},
     name: {
         test: (n: string) => n.length && n.length <= 100,
         err: "Name must be 100 characters or less",
@@ -86,24 +85,24 @@ const KEYS: any = {
     },
     icon: {
         test: async (a: string) => {
-            if(!validUrl.isWebUri(a)) return false;
+            if (!validUrl.isWebUri(a)) return false;
             try {
-                var data = await axios.head(a);
-                if(data.headers["content-type"]?.startsWith("image")) return true;
+                var data = await fetch(a, { method: "HEAD" });
+                if (data.headers.get("content-type")?.startsWith("image")) return true;
                 return false;
-            } catch(e) { return false; }
+            } catch (e) { return false; }
         },
         err: "Icon URL must be a valid image and less than 256 characters"
     },
     banner: {
         test: async (a: string) => {
-            if(a.length > 256) return false;
-            if(!validUrl.isWebUri(a)) return false;
+            if (a.length > 256) return false;
+            if (!validUrl.isWebUri(a)) return false;
             try {
-                var data = await axios.head(a);
-                if(data.headers["content-type"]?.startsWith("image")) return true;
+                var data = await fetch(a, { method: "HEAD" });
+                if (data.headers.get("content-type")?.startsWith("image")) return true;
                 return false;
-            } catch(e) { return false; }
+            } catch (e) { return false; }
         },
         err: "Banner URL must be a valid image and less than 256 characters"
     },
@@ -118,7 +117,7 @@ const KEYS: any = {
     members: {
         transform: (mems: Map<string, Member> | Array<string>) => {
             var arr: string[] = [];
-            if(mems instanceof Map) for(var m of mems.values()) arr.push(m.id ?? m);
+            if (mems instanceof Map) for (var m of mems.values()) arr.push(m.id ?? m);
             else arr = mems.map((m: Member | string) => {
                 return m instanceof Member ? m.id : m;
             });
@@ -165,9 +164,9 @@ export default class Group implements IGroup {
 
     constructor(api: API, data: Partial<Group>) {
         this.#api = api;
-        for(var k in data) {
-            if(KEYS[k]) {
-                if(KEYS[k].init) data[k] = KEYS[k].init(data[k]);
+        for (var k in data) {
+            if (KEYS[k]) {
+                if (KEYS[k].init) data[k] = KEYS[k].init(data[k]);
                 this[k] = data[k];
             }
         }
@@ -175,7 +174,7 @@ export default class Group implements IGroup {
 
     async patch(token?: string) {
         var data = await this.#api.patchGroup({ group: this.id, ...this, token });
-        for(var k in data) if(KEYS[k]) this[k] = data[k];
+        for (var k in data) if (KEYS[k]) this[k] = data[k];
         return this;
     }
 

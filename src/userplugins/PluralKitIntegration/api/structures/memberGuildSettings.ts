@@ -32,26 +32,25 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import axios from "axios";
 import validUrl from "valid-url";
 
 import API from "../index";
 import { verify } from "../utils";
 
 const KEYS: any = {
-    guild: { },
-    member: { },
+    guild: {},
+    member: {},
     display_name: {
         test: (s: string) => s.length <= 100,
         err: "Display name must be 100 characters or less"
     },
     avatar_url: {
         test: async (a: string) => {
-            if(!validUrl.isWebUri(a)) return false;
+            if (!validUrl.isWebUri(a)) return false;
             try {
-                const data = await axios.head(a);
-                return !!data.headers["content-type"]?.startsWith("image");
-            } catch(e) { return false; }
+                const data = await fetch(a, { method: "HEAD" });
+                return !!data.headers.get("content-type")?.startsWith("image");
+            } catch (e) { return false; }
         },
         err: "Avatar URL must be a valid image and less than 256 characters"
     },
@@ -82,9 +81,9 @@ export default class MemberGuildSettings implements IMemberGuildSettings {
 
     constructor(api: API, data: Partial<MemberGuildSettings>) {
         this.#api = api;
-        for(var k in data) {
-            if(KEYS[k]) {
-                if(KEYS[k].init) data[k] = KEYS[k].init(data[k]);
+        for (var k in data) {
+            if (KEYS[k]) {
+                if (KEYS[k].init) data[k] = KEYS[k].init(data[k]);
                 this[k] = data[k];
             }
         }
@@ -92,7 +91,7 @@ export default class MemberGuildSettings implements IMemberGuildSettings {
 
     async patch(token?: string) {
         var data = await this.#api.patchMemberGuildSettings({ ...this, token });
-        for(var k in data) if(KEYS[k]) this[k] = data[k];
+        for (var k in data) if (KEYS[k]) this[k] = data[k];
         return this;
     }
 

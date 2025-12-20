@@ -32,7 +32,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import axios from "axios";
 import tc, { Instance } from "tinycolor2";
 import validUrl from "valid-url";
 
@@ -46,12 +45,12 @@ import SystemConfig from "./systemConfig";
 import SystemGuildSettings from "./systemGuildSettings";
 
 export const enum SystemPrivacyKeys {
-    Description = 	"description_privacy",
-    Pronouns = 		"pronoun_privacy",
-    MemberList = 	"member_list_privacy",
-    GroupList = 	"group_list_privacy",
-    Front = 		"front_privacy",
-    FrontHistory = 	"front_history_privacy"
+    Description = "description_privacy",
+    Pronouns = "pronoun_privacy",
+    MemberList = "member_list_privacy",
+    GroupList = "group_list_privacy",
+    Front = "front_privacy",
+    FrontHistory = "front_history_privacy"
 }
 
 const pKeys = [
@@ -73,8 +72,8 @@ export interface SystemPrivacy {
 }
 
 const KEYS: any = {
-    id: { },
-    uuid: { },
+    id: {},
+    uuid: {},
     name: {
         test: (n: string) => !n.length || n.length <= 100,
         err: "Name must be 100 characters or less"
@@ -83,25 +82,25 @@ const KEYS: any = {
         test: (d: string) => !d.length || d.length < 1000,
         err: "Description must be 1000 characters or less"
     },
-    tag: { },
-    pronouns: { },
+    tag: {},
+    pronouns: {},
     avatar_url: {
         test: async (a: string) => {
-            if(!validUrl.isWebUri(a)) return false;
+            if (!validUrl.isWebUri(a)) return false;
             try {
-                const data = await axios.head(a);
-                return !!data.headers["content-type"]?.startsWith("image");
-            } catch(e) { return false; }
+                const data = await fetch(a, { method: "HEAD" });
+                return !!data.headers.get("content-type")?.startsWith("image");
+            } catch (e) { return false; }
         },
         err: "Avatar URL must be a valid image and less than 256 characters"
     },
     banner: {
         test: async (a: string) => {
-            if(!validUrl.isWebUri(a)) return false;
+            if (!validUrl.isWebUri(a)) return false;
             try {
-                const data = await axios.head(a);
-                return !!data.headers["content-type"]?.startsWith("image");
-            } catch(e) { return false; }
+                const data = await fetch(a, { method: "HEAD" });
+                return !!data.headers.get("content-type")?.startsWith("image");
+            } catch (e) { return false; }
         },
         err: "Banner URL must be a valid image and less than 256 characters"
     },
@@ -167,9 +166,9 @@ export default class System implements ISystem {
 
     constructor(api: API, data: Partial<System>) {
         this.#api = api;
-        for(var k in data) {
-            if(KEYS[k]) {
-                if(KEYS[k].init) data[k] = KEYS[k].init(data[k]);
+        for (var k in data) {
+            if (KEYS[k]) {
+                if (KEYS[k].init) data[k] = KEYS[k].init(data[k]);
                 this[k] = data[k];
             }
         }
@@ -177,20 +176,20 @@ export default class System implements ISystem {
 
     async patch(token?: string) {
         var data = await this.#api.patchSystem({ system: this.id, ...this, token });
-        for(var k in data) if(KEYS[k]) this[k] = data[k];
+        for (var k in data) if (KEYS[k]) this[k] = data[k];
         return this;
     }
 
     async createMember(data: Partial<Member>) {
         var mem = await this.#api.createMember(data);
-        if(!this.members) this.members = new Map();
+        if (!this.members) this.members = new Map();
         this.members.set(mem.id, mem);
         return mem;
     }
 
     async getMember(member: string, token?: string) {
         var mem = await this.#api.getMember({ member, token });
-        if(!this.members) this.members = new Map();
+        if (!this.members) this.members = new Map();
         this.members.set(mem.id, mem);
         return mem;
     }
@@ -203,13 +202,13 @@ export default class System implements ISystem {
 
     async deleteMember(member: string, token?: string) {
         await this.#api.deleteMember({ member, token });
-        if(this.members) this.members.delete(member);
+        if (this.members) this.members.delete(member);
         return;
     }
 
     async createGroup(data: Partial<Group>) {
         var group = await this.#api.createGroup(data);
-        if(!this.groups) this.groups = new Map();
+        if (!this.groups) this.groups = new Map();
         this.groups.set(group.id, group);
         return group;
     }
@@ -222,14 +221,14 @@ export default class System implements ISystem {
 
     async getGroup(group: string, token?: string) {
         var grp = await this.#api.getGroup({ group, token });
-        if(!this.groups) this.groups = new Map<string, Group>();
+        if (!this.groups) this.groups = new Map<string, Group>();
         this.groups.set(grp.id, grp);
         return grp;
     }
 
     async deleteGroup(group: string, token?: string) {
         await this.#api.deleteGroup({ group, token });
-        if(this.groups) this.groups.delete(group);
+        if (this.groups) this.groups.delete(group);
         return;
     }
 
@@ -251,7 +250,7 @@ export default class System implements ISystem {
 
     async deleteSwitch(switchid: string, token?: string) {
         await this.#api.deleteSwitch({ switch: switchid, token });
-        if(this.switches)
+        if (this.switches)
             if (this.switches instanceof Map)
                 this.switches.delete(switchid);
             else
@@ -267,14 +266,14 @@ export default class System implements ISystem {
 
     async getGuildSettings(guild: string, token?: string) {
         const settings = await this.#api.getSystemGuildSettings({ guild, token });
-        if(!this.settings) this.settings = new Map();
+        if (!this.settings) this.settings = new Map();
         this.settings.set(guild, settings);
         return settings;
     }
 
     async getAutoproxySettings(guild: string, token?: string) {
         const settings = await this.#api.getSystemAutoproxySettings({ guild, token });
-        if(!this.autoproxySettings) this.autoproxySettings = new Map();
+        if (!this.autoproxySettings) this.autoproxySettings = new Map();
         this.autoproxySettings.set(guild, settings);
         return settings;
     }

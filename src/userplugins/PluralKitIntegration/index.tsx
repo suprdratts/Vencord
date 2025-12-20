@@ -190,14 +190,17 @@ export const settings = definePluginSettings({
 });
 
 export default definePlugin({
-    name: "Plural Kit",
-    description: "Pluralkit integration for Vencord",
+    name: "Plurally",
+    description: "Pluralkit integration for Vencord (Broken right now, use at your own risk!)",
     authors: [{
         name: "Adi",
         id: 334742188841762819n
     }, {
         name: "Scyye",
         id: 553652308295155723n
+    }, {
+        name: "suprstarrd",
+        id: 381862688298631168n
     }],
     startAt: StartAt.WebpackReady,
     settings,
@@ -340,7 +343,8 @@ export default definePlugin({
         const messageIter = pkAuthor?.switches?.values();
         const messageSwitch = messageIter?.filter(switchObj => { return savedTimestamp >= switchObj?.timestamp; })?.next?.();
         const member = messageSwitch?.value?.members?.values?.()?.next?.();
-        const url = member?.value?.avatar_url;
+        const memberValue = member?.value;
+        const url = typeof memberValue === "string" ? undefined : memberValue?.avatar_url;
         return url;
     },
 
@@ -357,7 +361,12 @@ export default definePlugin({
         const currentFront = firstSwitch?.value;
         if (!currentFront) return defaultUser;
 
-        var filtered = localSystem.filter(author => { return author?.member?.id === currentFront?.members?.values?.()?.next?.()?.value?.id; });
+        var filtered = localSystem.filter(author => {
+            const memberId = typeof author?.member === "string" ? author.member : author?.member?.id;
+            const currentMemberValue = currentFront?.members?.values?.()?.next?.()?.value;
+            const currentMemberId = typeof currentMemberValue === "string" ? currentMemberValue : currentMemberValue?.id;
+            return memberId === currentMemberId;
+        });
         if (!filtered) return defaultUser;
         if (!Array.isArray(filtered)) return defaultUser;
         if (!filtered[0]?.member) return defaultUser;
@@ -398,7 +407,7 @@ export default definePlugin({
         if (!isPk(userPopoutMessage))
             return null;
 
-        const pkAuthor = getAuthorOfMessage(userPopoutMessage, pluralKit.api);
+        const pkAuthor = getAuthorOfMessage(userPopoutMessage!, pluralKit.api);
 
         if (pkAuthor?.member === undefined)
             return null;
@@ -410,7 +419,7 @@ export default definePlugin({
         if (!isPk(userPopoutMessage))
             return "";
 
-        const pkAuthor = getAuthorOfMessage(userPopoutMessage, pluralKit.api);
+        const pkAuthor = getAuthorOfMessage(userPopoutMessage!, pluralKit.api);
 
         if (pkAuthor?.member === undefined)
             return "";
