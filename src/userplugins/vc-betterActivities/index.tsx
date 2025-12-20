@@ -329,7 +329,7 @@ export default definePlugin({
         );
 
         const activities = useStateFromStores<Activity[]>(
-            [PresenceStore], () => PresenceStore.getActivities(user.id).filter((activity: Activity) => activity.type !== 4)
+            [PresenceStore], () => PresenceStore.getActivities(user.id).filter(activity => activity.type !== 4) as Activity[]
         ) ?? [];
 
         useEffect(() => {

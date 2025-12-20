@@ -78,7 +78,7 @@ function GetAuthorMenuItem(author: Author, message: Message) {
 const ctxMenuPatch: NavContextMenuPatchCallback = (children, { message }) => {
     if (!isOwnPkMessage(message, pluralKit.api)) return;
 
-    const editMenuSection = children.find(child => child.props?.children?.find(child => child?.props?.id == "reply"));
+    const editMenuSection = children.find(child => child?.props?.children?.find(child => child?.props?.id === "reply"));
 
     // Place at the beginning of the second menu section
     editMenuSection?.props?.children?.splice?.(0, 0,
@@ -96,10 +96,10 @@ const ctxMenuPatch: NavContextMenuPatchCallback = (children, { message }) => {
 
     const proxyMenuItems = localSystem.map(author => GetAuthorMenuItem(author, message));
 
-    const reproxyMenuSection = children.find(child => child.props?.children?.find(child => child?.props?.id == "copy-link"));
+    const reproxyMenuSection = children.find(child => child?.props?.children?.find(child => child?.props?.id === "copy-link"));
 
     // Place right after the apps dropdown
-    reproxyMenuSection.props.children.push(
+    reproxyMenuSection?.props.children.push(
         <Menu.MenuItem
             id="pk-reproxy"
             label={
@@ -108,14 +108,15 @@ const ctxMenuPatch: NavContextMenuPatchCallback = (children, { message }) => {
                 </div>
             }
             listClassName="pk-reproxy-list"
-            children={proxyMenuItems}
-        />
+        >
+            {proxyMenuItems}
+        </Menu.MenuItem>
     );
 
-    const deleteMenuSection = children.find(child => child.props?.children?.find(child => child?.props?.id == "delete"));
+    const deleteMenuSection = children.find(child => child?.props?.children?.find(child => child?.props?.id === "delete"));
 
     // Override the regular delete button if it's not present
-    if (deleteMenuSection)
+    if (!deleteMenuSection)
         return;
 
     deleteMenuSection.props.children.push(
@@ -193,10 +194,10 @@ export default definePlugin({
     description: "Pluralkit integration for Vencord",
     authors: [{
         name: "Adi",
-        id: 334742188841762819
+        id: 334742188841762819n
     }, {
         name: "Scyye",
-        id: 553652308295155723
+        id: 553652308295155723n
     }],
     startAt: StartAt.WebpackReady,
     settings,
@@ -228,7 +229,7 @@ export default definePlugin({
         {
             find: "getCurrentUser(){",
             replacement: {
-                match: /(?<=return )\i\[[^\.]*.default.getId\(\)\]/,
+                match: /(?<=return )\i\[[^.]*.default.getId\(\)\]/,
                 replace: " $self.getCurrentUser($&)"
             }
         },
@@ -356,7 +357,7 @@ export default definePlugin({
         const currentFront = firstSwitch?.value;
         if (!currentFront) return defaultUser;
 
-        var filtered = localSystem.filter(author => { return author?.member?.id == currentFront?.members?.values?.()?.next?.()?.value?.id; });
+        var filtered = localSystem.filter(author => { return author?.member?.id === currentFront?.members?.values?.()?.next?.()?.value?.id; });
         if (!filtered) return defaultUser;
         if (!Array.isArray(filtered)) return defaultUser;
         if (!filtered[0]?.member) return defaultUser;
@@ -383,7 +384,7 @@ export default definePlugin({
     },
 
     renderUserGuildPopout: (message: Message) => {
-        if (message == userPopoutMessage)
+        if (message === userPopoutMessage)
             return;
 
         userPopoutMessage = message;
@@ -477,7 +478,7 @@ export default definePlugin({
             let roleColor = guildMember?.colorString;
 
             if (pkAuthor.switches) {
-                const [messageSwitch] = pkAuthor?.switches?.values?.()?.filter?.(switchObj => { return message.timestamp >= switchObj?.timestamp; });
+                const messageSwitch = Array.from(pkAuthor?.switches?.values?.() ?? []).filter((switchObj: any) => message.timestamp >= switchObj?.timestamp)?.[0] as any;
 
                 pkAuthor.member = messageSwitch?.members ? messageSwitch?.members?.values?.().toArray?.()?.[0] ?? pkAuthor?.member : undefined;
             }
@@ -544,7 +545,7 @@ export default definePlugin({
             if (!isPk(props.message))
                 return null;
             return <ErrorBoundary noop>
-                <img src="https://pluralkit.me/favicon.png" height="17" style={{
+                <img alt="PluralKit icon" src="https://pluralkit.me/favicon.png" height="17" style={{
                     marginLeft: 4,
                     verticalAlign: "sub"
                 }} />
@@ -565,7 +566,7 @@ export default definePlugin({
                 onClick: () => MessageActions.startEditMessage(msg.channel_id, msg.id, msg.content),
                 onContextMenu: _ => { }
             };
-        });
+        }, PencilIcon);
 
         addMessagePopoverButton("pk-delete", msg => {
             if (!msg) return null;
@@ -583,7 +584,7 @@ export default definePlugin({
                 onClick: () => deleteMessage(msg),
                 onContextMenu: _ => { }
             };
-        });
+        }, DeleteIcon);
 
         // Stolen directly from https://github.com/lynxize/vencord-plugins/blob/plugins/src/userplugins/pk4vc/index.tsx
         this.preEditListener = addMessagePreEditListener((channelId, messageId, messageObj) => {

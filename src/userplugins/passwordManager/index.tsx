@@ -451,16 +451,16 @@ const ViewPasswordModal = ({
                         <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
                             <div className="password-view-section">
                                 <Text variant="heading-sm/medium">Username</Text>
-                                <Text selectable>{entry.username}</Text>
+                                <Text unselectable="off">{entry.username}</Text>
                             </div>
                             <div className="password-view-section">
                                 <Text variant="heading-sm/medium">Password</Text>
-                                <Text selectable>{entry.password}</Text>
+                                <Text unselectable="off">{entry.password}</Text>
                             </div>
                             {entry.twoFactorSecret && (
                                 <div className="password-view-section">
                                     <Text variant="heading-sm/medium">2FA Secret</Text>
-                                    <Text selectable>{entry.twoFactorSecret}</Text>
+                                    <Text unselectable="off">{entry.twoFactorSecret}</Text>
                                 </div>
                             )}
                         </div>
@@ -669,7 +669,7 @@ class PasswordManagerUI {
 export default definePlugin({
     name: "PasswordManager",
     description: "Securely store and manage your passwords",
-    authors: [EquicordDevs.ExoDev],
+    authors: [EquicordDevs.nobody],
 
     passwordManager: null as PasswordManager | null,
     ui: null as PasswordManagerUI | null,
