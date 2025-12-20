@@ -11,9 +11,10 @@ import { classNameFactory } from "@api/Styles";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { Devs } from "@utils/constants";
 import definePlugin, { OptionType } from "@utils/types";
+import { User } from "@vencord/discord-types";
 import { findByPropsLazy, findComponentByCodeLazy, findStoreLazy } from "@webpack";
 import { PresenceStore, React, Tooltip, useEffect, useMemo, UserStore, useState, useStateFromStores } from "@webpack/common";
-import { User } from "discord-types/general";
+import { JSX } from "react";
 
 import { Caret } from "./components/Caret";
 import { SpotifyIcon } from "./components/SpotifyIcon";
@@ -328,7 +329,7 @@ export default definePlugin({
         );
 
         const activities = useStateFromStores<Activity[]>(
-            [PresenceStore], () => PresenceStore.getActivities(user.id).filter((activity: Activity) => activity.type !== 4)
+            [PresenceStore], () => PresenceStore.getActivities(user.id).filter(activity => activity.type !== 4) as Activity[]
         ) ?? [];
 
         useEffect(() => {

@@ -24,6 +24,7 @@ import { definePluginSettings } from "@api/Settings";
 import ErrorBoundary from "@components/ErrorBoundary";
 import { DeleteIcon, PencilIcon } from "@components/Icons";
 import definePlugin, { OptionType, StartAt } from "@utils/types";
+import { Message } from "@vencord/discord-types";
 import {
     Avatar,
     Button,
@@ -33,7 +34,6 @@ import {
     MessageActions,
     MessageStore, UserStore
 } from "@webpack/common";
-import { Message } from "discord-types/general";
 
 import { PKAPI } from "./api";
 import pluralKit from "./index";
@@ -43,13 +43,13 @@ import {
     deleteMessage,
     generateAuthorData,
     getAuthorOfMessage,
+    getUsernameStyle,
+    getUserSystem,
     isOwnPkMessage,
     isPk,
     loadAuthors, loadData,
     localSystem,
     replaceTags,
-    getUsernameStyle,
-    getUserSystem,
 } from "./utils";
 
 function GetAuthorMenuItem(author: Author, message: Message) {
@@ -58,7 +58,7 @@ function GetAuthorMenuItem(author: Author, message: Message) {
         <Menu.MenuItem
             id={"pk_menu_item_" + author.member.uuid}
             iconLeft={() =>
-                (<Avatar className="pk-menu-icon" src={author.member?.avatar_url ?? author.system.avatar_url ?? "https://pluralkit.me/favicon.png"} size="SIZE_20"/>)
+                (<Avatar className="pk-menu-icon" src={author.member?.avatar_url ?? author.system.avatar_url ?? "https://pluralkit.me/favicon.png"} size="SIZE_20" />)
             }
             label={
                 <div className="pk-menu-item">
@@ -68,17 +68,17 @@ function GetAuthorMenuItem(author: Author, message: Message) {
             action={() => {
                 const { guild_id } = ChannelStore.getChannel(message.channel_id);
                 MessageActions.sendMessage(message.channel_id, // Replace with pluralkit's channel ID once reproxying works in DMs: 1276796961227276338
-                        {content: "pk;reproxy https://discord.com/channels/" + guild_id + "/" + message.channel_id + "/" + message.id + " " + author.member?.name},
+                    { content: "pk;reproxy https://discord.com/channels/" + guild_id + "/" + message.channel_id + "/" + message.id + " " + author.member?.name },
                     false);
-                }
+            }
             }
         />);
 }
 
-const ctxMenuPatch: NavContextMenuPatchCallback = (children, {message}) => {
+const ctxMenuPatch: NavContextMenuPatchCallback = (children, { message }) => {
     if (!isOwnPkMessage(message, pluralKit.api)) return;
 
-    let editMenuSection = children.find(child => child.props?.children?.find(child => child?.props?.id == "reply"));
+    const editMenuSection = children.find(child => child?.props?.children?.find(child => child?.props?.id === "reply"));
 
     // Place at the beginning of the second menu section
     editMenuSection?.props?.children?.splice?.(0, 0,
@@ -94,12 +94,12 @@ const ctxMenuPatch: NavContextMenuPatchCallback = (children, {message}) => {
         />
     );
 
-    let proxyMenuItems = localSystem.map(author => GetAuthorMenuItem(author, message));
+    const proxyMenuItems = localSystem.map(author => GetAuthorMenuItem(author, message));
 
-    let reproxyMenuSection = children.find(child => child.props?.children?.find(child => child?.props?.id == "copy-link"));
+    const reproxyMenuSection = children.find(child => child?.props?.children?.find(child => child?.props?.id === "copy-link"));
 
     // Place right after the apps dropdown
-    reproxyMenuSection.props.children.push(
+    reproxyMenuSection?.props.children.push(
         <Menu.MenuItem
             id="pk-reproxy"
             label={
@@ -108,14 +108,15 @@ const ctxMenuPatch: NavContextMenuPatchCallback = (children, {message}) => {
                 </div>
             }
             listClassName="pk-reproxy-list"
-            children={proxyMenuItems}
-        />
+        >
+            {proxyMenuItems}
+        </Menu.MenuItem>
     );
 
-    let deleteMenuSection = children.find(child => child.props?.children?.find(child => child?.props?.id == "delete"));
+    const deleteMenuSection = children.find(child => child?.props?.children?.find(child => child?.props?.id === "delete"));
 
     // Override the regular delete button if it's not present
-    if (deleteMenuSection)
+    if (!deleteMenuSection)
         return;
 
     deleteMenuSection.props.children.push(
@@ -159,7 +160,7 @@ export const settings = definePluginSettings({
     load: {
         type: OptionType.COMPONENT,
         component: () => {
-            return <Button label={"Load"} onClick = {async () => {
+            return <Button label={"Load"} onClick={async () => {
                 await loadData();
             }}>LOAD</Button>;
         },
@@ -173,7 +174,7 @@ export const settings = definePluginSettings({
     printData: {
         type: OptionType.COMPONENT,
         component: () => {
-            return <Button onClick = {() => {
+            return <Button onClick={() => {
                 console.log(settings.store.data);
             }}>Print Data</Button>;
         },
@@ -189,14 +190,17 @@ export const settings = definePluginSettings({
 });
 
 export default definePlugin({
-    name: "Plural Kit",
-    description: "Pluralkit integration for Vencord",
+    name: "Plurally",
+    description: "Pluralkit integration for Vencord (Broken right now, use at your own risk!)",
     authors: [{
         name: "Adi",
-        id: 334742188841762819
-    },{
+        id: 334742188841762819n
+    }, {
         name: "Scyye",
-        id: 553652308295155723
+        id: 553652308295155723n
+    }, {
+        name: "suprstarrd",
+        id: 381862688298631168n
     }],
     startAt: StartAt.WebpackReady,
     settings,
@@ -228,7 +232,7 @@ export default definePlugin({
         {
             find: "getCurrentUser(){",
             replacement: {
-                match: /(?<=return )\i\[[^\.]*.default.getId\(\)\]/,
+                match: /(?<=return )\i\[[^.]*.default.getId\(\)\]/,
                 replace: " $self.getCurrentUser($&)"
             }
         },
@@ -294,7 +298,7 @@ export default definePlugin({
         },
     ],
 
-    setRepliedMessage: ({message}) => {
+    setRepliedMessage: ({ message }) => {
         if (!message?.embeds?.[0])
             return;
 
@@ -320,35 +324,36 @@ export default definePlugin({
         const channel_id = match[2];
         const message_id = match[3];
 
-        message.messageReference = {channel_id: channel_id, guild_id: guild_id, message_id: message_id, type: 0}
+        message.messageReference = { channel_id: channel_id, guild_id: guild_id, message_id: message_id, type: 0 };
         message.embeds = [];
         message.type = 19; // Mark the message as a reply
     },
 
-    saveTimestamp: ({message}) => {
-        if(!getUserSystem(message.author.id, pluralKit.api))
+    saveTimestamp: ({ message }) => {
+        if (!getUserSystem(message.author.id, pluralKit.api))
             return;
 
         savedTimestamp = new Date();
-        if(message?.timestamp)
+        if (message?.timestamp)
             savedTimestamp = new Date(message.timestamp);
     },
 
-    checkFronterPfp: (userId) => {
+    checkFronterPfp: userId => {
         const pkAuthor = getUserSystem(userId, pluralKit.api);
         const messageIter = pkAuthor?.switches?.values();
-        const messageSwitch = messageIter?.filter((switchObj) => {return savedTimestamp >= switchObj?.timestamp})?.next?.();
+        const messageSwitch = messageIter?.filter(switchObj => { return savedTimestamp >= switchObj?.timestamp; })?.next?.();
         const member = messageSwitch?.value?.members?.values?.()?.next?.();
-        const url = member?.value?.avatar_url;
+        const memberValue = member?.value;
+        const url = typeof memberValue === "string" ? undefined : memberValue?.avatar_url;
         return url;
     },
 
-    fronterPfp: (userId) => {
+    fronterPfp: userId => {
         const pfp = pluralKit.checkFronterPfp(userId);
         return pfp;
     },
 
-    getCurrentUser: (defaultUser) => {
+    getCurrentUser: defaultUser => {
         if (!localSystem?.length) return defaultUser;
 
         const userSystem = getUserSystem(defaultUser.id, pluralKit.api);
@@ -356,7 +361,12 @@ export default definePlugin({
         const currentFront = firstSwitch?.value;
         if (!currentFront) return defaultUser;
 
-        var filtered = localSystem.filter((author) => {return author?.member?.id == currentFront?.members?.values?.()?.next?.()?.value?.id});
+        var filtered = localSystem.filter(author => {
+            const memberId = typeof author?.member === "string" ? author.member : author?.member?.id;
+            const currentMemberValue = currentFront?.members?.values?.()?.next?.()?.value;
+            const currentMemberId = typeof currentMemberValue === "string" ? currentMemberValue : currentMemberValue?.id;
+            return memberId === currentMemberId;
+        });
         if (!filtered) return defaultUser;
         if (!Array.isArray(filtered)) return defaultUser;
         if (!filtered[0]?.member) return defaultUser;
@@ -364,7 +374,7 @@ export default definePlugin({
         return defaultUser;
     },
 
-    getUserPopoutMessageSender: ({channelId, messageId, user}) => {
+    getUserPopoutMessageSender: ({ channelId, messageId, user }) => {
         if (user) {
             const authorData = generateAuthorData(user);
 
@@ -383,7 +393,7 @@ export default definePlugin({
     },
 
     renderUserGuildPopout: (message: Message) => {
-        if (message == userPopoutMessage)
+        if (message === userPopoutMessage)
             return;
 
         userPopoutMessage = message;
@@ -397,7 +407,7 @@ export default definePlugin({
         if (!isPk(userPopoutMessage))
             return null;
 
-        const pkAuthor = getAuthorOfMessage(userPopoutMessage, pluralKit.api);
+        const pkAuthor = getAuthorOfMessage(userPopoutMessage!, pluralKit.api);
 
         if (pkAuthor?.member === undefined)
             return null;
@@ -409,7 +419,7 @@ export default definePlugin({
         if (!isPk(userPopoutMessage))
             return "";
 
-        const pkAuthor = getAuthorOfMessage(userPopoutMessage, pluralKit.api);
+        const pkAuthor = getAuthorOfMessage(userPopoutMessage!, pluralKit.api);
 
         if (pkAuthor?.member === undefined)
             return "";
@@ -417,7 +427,7 @@ export default definePlugin({
         return pkAuthor.member.description ?? pkAuthor.system.description;
     },
 
-    modifyNick: ({user, nick}) => {
+    modifyNick: ({ user, nick }) => {
         if (!user)
             return nick;
 
@@ -450,7 +460,7 @@ export default definePlugin({
         try {
             const discordUsername = author.nick ?? message.author.globalName ?? message.author.username;
 
-            const userSystem = getUserSystem(message.author.id, pluralKit.api)
+            const userSystem = getUserSystem(message.author.id, pluralKit.api);
             if (!isPk(message) && !userSystem)
                 return <>{prefix}{discordUsername}</>;
 
@@ -458,10 +468,10 @@ export default definePlugin({
             if (decorations)
                 decorations[0] = null;
 
-            let username = isPk(message) ? message.author.username ?? author.nick ?? message.author.globalName : discordUsername;
+            const username = isPk(message) ? message.author.username ?? author.nick ?? message.author.globalName : discordUsername;
 
             // U-FE0F is the Emoji variant selector. This converts pictographics to emoticons
-            //username = username.replace(/\p{Emoji}/ug, "$&\uFE0F");
+            // username = username.replace(/\p{Emoji}/ug, "$&\uFE0F");
 
             if (!settings.store.colorNames)
                 return <>{prefix}{username}</>;
@@ -470,14 +480,14 @@ export default definePlugin({
 
             // A PK message without an author. It's likely still loading
             if (!pkAuthor)
-                return <span style={{color: "var(--text-muted))"}}>{prefix}{username}</span>;
+                return <span style={{ color: "var(--text-muted))" }}>{prefix}{username}</span>;
 
             const guildID = ChannelStore.getChannel(message.channel_id)?.guild_id;
             const guildMember = GuildMemberStore.getMember(guildID, pkAuthor.discordID);
             let roleColor = guildMember?.colorString;
 
             if (pkAuthor.switches) {
-                const [messageSwitch] = pkAuthor?.switches?.values?.()?.filter?.((switchObj) => {return message.timestamp >= switchObj?.timestamp});
+                const messageSwitch = Array.from(pkAuthor?.switches?.values?.() ?? []).filter((switchObj: any) => message.timestamp >= switchObj?.timestamp)?.[0] as any;
 
                 pkAuthor.member = messageSwitch?.members ? messageSwitch?.members?.values?.().toArray?.()?.[0] ?? pkAuthor?.member : undefined;
             }
@@ -485,7 +495,7 @@ export default definePlugin({
             // A PK message that contains an author but no member, meaning the member was likely deleted
             if (!pkAuthor.member) {
                 // If this is a user system, don't apply the red coloration
-                let style = userSystem ? undefined : getUsernameStyle(roleColor, "var(--text-danger)");
+                const style = userSystem ? undefined : getUsernameStyle(roleColor, "var(--text-danger)");
 
                 return <span style={style}>{prefix}{username}</span>;
             }
@@ -494,11 +504,11 @@ export default definePlugin({
             message.author.bot = false;
 
             let color = pkAuthor.member?.color ?? pkAuthor.system?.color;
-            color = color ? `#${color}` : "var(--text-normal)"
+            color = color ? `#${color}` : "var(--text-normal)";
 
             const isMe = isOwnPkMessage(message, pluralKit.api);
 
-            /*if (isMe && guildID && !userSystem) {
+            /* if (isMe && guildID && !userSystem) {
                 pkAuthor.member.getGuildSettings(guildID).then(guildSettings => {
                     pkAuthor.guildSettings.set(guildID, guildSettings);
                 });
@@ -522,8 +532,8 @@ export default definePlugin({
             color = color ?? roleColor;
             roleColor = roleColor ?? color;
 
-            let style = getUsernameStyle(roleColor, color);
-			return <span style={style}>{prefix}{resultText}</span>;
+            const style = getUsernameStyle(roleColor, color);
+            return <span style={style}>{prefix}{resultText}</span>;
         } catch (e) {
             console.error(e);
             return <>{prefix}{author?.nick}</>;
@@ -544,10 +554,10 @@ export default definePlugin({
             if (!isPk(props.message))
                 return null;
             return <ErrorBoundary noop>
-                <img src="https://pluralkit.me/favicon.png" height="17" style={{
+                <img alt="PluralKit icon" src="https://pluralkit.me/favicon.png" height="17" style={{
                     marginLeft: 4,
                     verticalAlign: "sub"
-                }}/>
+                }} />
             </ErrorBoundary>;
         });
 
@@ -558,14 +568,14 @@ export default definePlugin({
             return {
                 label: "Edit",
                 icon: () => {
-                    return <PencilIcon/>;
+                    return <PencilIcon />;
                 },
                 message: msg,
                 channel: ChannelStore.getChannel(msg.channel_id),
                 onClick: () => MessageActions.startEditMessage(msg.channel_id, msg.id, msg.content),
-                onContextMenu: _ => {}
+                onContextMenu: _ => { }
             };
-        });
+        }, PencilIcon);
 
         addMessagePopoverButton("pk-delete", msg => {
             if (!msg) return null;
@@ -576,23 +586,24 @@ export default definePlugin({
                 label: "Delete",
                 dangerous: true,
                 icon: () => {
-                    return <DeleteIcon/>;
+                    return <DeleteIcon />;
                 },
                 message: msg,
                 channel: ChannelStore.getChannel(msg.channel_id),
                 onClick: () => deleteMessage(msg),
-                onContextMenu: _ => {}
+                onContextMenu: _ => { }
             };
-        });
+        }, DeleteIcon);
 
         // Stolen directly from https://github.com/lynxize/vencord-plugins/blob/plugins/src/userplugins/pk4vc/index.tsx
         this.preEditListener = addMessagePreEditListener((channelId, messageId, messageObj) => {
             if (isPk(MessageStore.getMessage(channelId, messageId))) {
                 const { guild_id } = ChannelStore.getChannel(channelId);
                 MessageActions.sendMessage("1276796961227276338", {
-                        content: "pk;e https://discord.com/channels/" + guild_id + "/" + channelId + "/" + messageId + " " + messageObj.content},
+                    content: "pk;e https://discord.com/channels/" + guild_id + "/" + channelId + "/" + messageId + " " + messageObj.content
+                },
                     false);
-                //return { cancel: true };
+                // return { cancel: true };
             }
         });
 

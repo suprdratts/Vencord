@@ -20,33 +20,34 @@
 /* eslint-disable eqeqeq */
 // import { readFileSync } from "fs";
 // const process = require("~process");
+// String.prototype.replaceAll = function (search, replacement) {
+//     var target = this;
+//     return target.split(search).join(replacement);
+// };
 import { Settings } from "@api/Settings";
 import { copyToClipboard } from "@utils/clipboard";
-import { Devs } from "@utils/constants";
-import definePlugin, { OptionType, PluginDef } from "@utils/types";
+import { EquicordDevs } from "@utils/constants";
+import definePlugin, { OptionType } from "@utils/types";
 import { React } from "@webpack/common";
+import { Backend, configureSingle, fs as ZenFS_fs, InMemory, MountConfiguration } from "@zenfs/core";
+import * as ZenFS_path from "@zenfs/core/path";
+import { IndexedDB as ZenFS_IndexedDB, WebStorage as ZenFS_WebStorage } from "@zenfs/dom";
+import { RealFs, RealFSClient } from "real-fs-client";
 
 import { PluginMeta } from "~plugins";
 
-import { PLUGIN_NAME, ZENFS_BUILD_HASH } from "./constants";
+import { PLUGIN_NAME } from "./constants";
 import { cleanupGlobal, createGlobalBdApi, getGlobalApi } from "./fakeBdApi";
 import { addContextMenu, addDiscordModules, FakeEventEmitter, fetchWithCorsProxyFallback, Patcher } from "./fakeStuff";
 import { injectSettingsTabs, unInjectSettingsTab } from "./fileSystemViewer";
 import { addCustomPlugin, convertPlugin, removeAllCustomPlugins } from "./pluginConstructor";
 import { ReactUtils_filler } from "./stuffFromBD";
-import { aquireNative, compat_logger, FSUtils, getDeferred, reloadCompatLayer, simpleGET, ZIPUtils } from "./utils";
-// String.prototype.replaceAll = function (search, replacement) {
-//     var target = this;
-//     return target.split(search).join(replacement);
-// };
+import { compat_logger, FSUtils, getDeferred, reloadCompatLayer, simpleGET, ZIPUtils } from "./utils";
 
 export default definePlugin({
-    name: "BDCompatLayer",
+    name: "BD Compatibility Layer",
     description: "Converts BD plugins to run in Vencord",
-    authors: [
-        Devs.Davvy,
-        Devs.WhoIsThis,
-    ],
+    authors: [EquicordDevs.Davilarek, EquicordDevs.zrodevkaan],
     // patches: [
     //     {
     //         match: (/(\w+)\.\w+\s*=\s*function\(\w+\,\w+\){for\(var\s+\w\s+in\s\w+\)\w\.o\(\w,\w\)&&!\w\.o\(\w,\w\)&&Object.defineProperty\(\w,\w,{enumerable:!0,get:\w\[\w\]}\)}/.toString()),
@@ -136,114 +137,58 @@ export default definePlugin({
         // const proxyUrl = "https://api.allorigins.win/raw?url=";
         // const proxyUrl = "https://cors-get-proxy.sirjosh.workers.dev/?url=";
         const proxyUrl = Settings.plugins[this.name].corsProxyUrl ?? this.options.corsProxyUrl.default;
+        async function checkCorsProxyUrlCsp() {
+            if (IS_WEB) return true;
+
+            const current = Settings.plugins[PLUGIN_NAME].corsProxyUrl ?? proxyUrl;
+            if (await VencordNative.csp.isDomainAllowed(current, ["connect-src"])) {
+                compat_logger.debug("CSP for CORS Proxy is allowed");
+                return true;
+            }
+
+            const res = await VencordNative.csp.requestAddOverride(current, ["connect-src"], "BD Compat Layer: CORS Proxy");
+            if (res === "ok") {
+                compat_logger.debug("CSP for CORS Proxy is allowed from now");
+                return true;
+            }
+            return false;
+        }
         // eslint-disable-next-line no-prototype-builtins
         if (!Settings.plugins[this.name].hasOwnProperty("pluginsStatus")) {
             Settings.plugins[this.name].pluginsStatus = this.options.pluginsStatus.default;
         }
-        // const Filer = this.simpleGET(proxyUrl + "https://github.com/jvilk/BrowserFS/releases/download/v1.4.3/browserfs.js");
-        // const reallyUsePoorlyMadeRealFs = IS_WEB ? false : (Settings.plugins[this.name].usePoorlyMadeRealFs ?? this.options.usePoorlyMadeRealFs!.default);
-        const reallyUsePoorlyMadeRealFs = false;
-        if (!reallyUsePoorlyMadeRealFs) {
-            fetch(
-                proxyUrl +
-                // "https://github.com/jvilk/BrowserFS/releases/download/v1.4.3/browserfs.min.js"
-                // "http://localhost:8080/browserfs.min.js"
-                // `https://github.com/LosersUnited/BrowserFS-builds/raw/${BROWSERFS_BUILD_HASH}/dist/browserfs.min.js` // TODO: Add option to change this
-                `https://github.com/LosersUnited/ZenFS-builds/raw/${ZENFS_BUILD_HASH}/bin/bundle.js` // TODO: Add option to change this
-            )
-                .then(out => out.text())
-                .then(out2 => {
-                    out2 = "'use strict';\n" + out2;
-                    out2 += "\n//# sourceURL=betterDiscord://internal/BrowserFs.js";
-                    const ev = new Function(out2);
-                    ev.call({});
-                    const zen = globalThis.ZenFS_Aquire();
-                    const ZenFs = zen.zenfs;
-                    const ZenFsDom = zen.zenfs_dom;
-
-                    const temp: any = {};
-                    const target = {
-                        browserFSSetting: {},
-                        client: null as typeof zen.RealFSClient | null,
-                    }; // because "let" sucks
-                    if (Settings.plugins[this.name].useRealFsInstead === true) {
-                        target.client = new zen.RealFSClient("localhost:8000/api/v1/ws"); // TODO: add option to change this
-                        target.browserFSSetting = {
-                            backend: zen.RealFs,
-                            sync: ZenFs.InMemory,
-                            client: target.client,
-                        };
-                    } else if (Settings.plugins[this.name].useIndexedDBInstead === true) {
-                        target.browserFSSetting = {
-                            // fs: "AsyncMirror",
-                            // options: {
-                            //     sync: { fs: "InMemory" },
-                            //     async: { fs: "IndexedDB", options: { storeName: "VirtualFS" } },
-                            // },
-                            backend: ZenFsDom.IndexedDB,
-                            storeName: "VirtualFS",
-                        };
-                    } else {
-                        target.browserFSSetting = {
-                            // fs: "LocalStorage",
-                            backend: ZenFsDom.WebStorage, storage: Vencord.Util.localStorage,
-                        };
-                    }
-                    // window.BrowserFS.install(temp);
-                    // window.BrowserFS.configure(
-                    //     target.browserFSSetting,
-                    ZenFs.configureSingle(target.browserFSSetting).then(
-                        // {
-                        // fs: "InMemory"
-                        // fs: "LocalStorage",
-                        // fs: "IndexedDB",
-                        // options: {
-                        //     "storeName": "VirtualFS"
-                        // },
-                        // fs: "AsyncMirror",
-                        // options: {
-                        //     sync: { fs: "InMemory" },
-                        //     async: { fs: "IndexedDB", options: { storeName: "VirtualFS" } },
-                        // }
-                        // },
-                        async () => {
-                            if (target.client && target.client instanceof zen.RealFSClient) await target.client.ready;
-                            // window.BdApi.ReqImpl.fs = temp.require("fs");
-                            // window.BdApi.ReqImpl.path = temp.require("path");
-                            // ReImplementationObject.fs = temp.require("fs");
-
-                            // reimplementationsReady should be checked but nahh
-                            // ReImplementationObject.fs = patchReadFileSync(patchMkdirSync(temp.require("fs")));
-                            ReImplementationObject.fs = ZenFs.fs;
-                            const path = await (await fetch("https://cdn.jsdelivr.net/npm/path-browserify@1.0.1/index.js")).text();
-                            const result = eval.call(window, "(()=>{const module = {};" + path + "return module.exports;})();\n//# sourceURL=betterDiscord://internal/path.js");
-                            // ReImplementationObject.path = /*temp.require("path")*/;
-                            ReImplementationObject.path = result;
-                            if (Settings.plugins[this.name].safeMode == undefined || Settings.plugins[this.name].safeMode == false)
-                                // @ts-ignore
-                                windowBdCompatLayer.fsReadyPromise.resolve();
-                        }
-                    );
-                });
+        const target = {
+            browserFSSetting: {},
+            client: null as RealFSClient | null,
+        }; // because "let" sucks
+        if (Settings.plugins[this.name].useRealFsInstead === true) {
+            target.client = new RealFSClient("localhost:8000/api/v1/ws"); // TODO: add option to change this
+            target.browserFSSetting = {
+                backend: RealFs,
+                sync: InMemory,
+                client: target.client,
+            };
+        } else if (Settings.plugins[this.name].useIndexedDBInstead === true) {
+            target.browserFSSetting = {
+                backend: ZenFS_IndexedDB,
+                storeName: "VirtualFS",
+            };
+        } else {
+            target.browserFSSetting = {
+                backend: ZenFS_WebStorage, storage: Vencord.Util.localStorage,
+            };
         }
-        else {
-            const native = aquireNative();
-            compat_logger.warn("Waiting for reimplementation object to be ready...");
-            reimplementationsReady.promise.then(async () => {
-                compat_logger.warn("Enabling real fs...");
-                // const nativeBridge = await native.getBridge();
-                // ReImplementationObject.fs = nativeBridge.fs;
-                // ReImplementationObject.path = nativeBridge.path;
-                // ReImplementationObject.process.env._home_secret = nativeBridge.getUserHome()!;
-                const req = (await native.unsafe_req()) as globalThis.NodeRequire;
-                ReImplementationObject.fs = await req("fs");
-                ReImplementationObject.path = await req("path");
-                ReImplementationObject.process.env._home_secret = (await native.getUserHome())!;
+        configureSingle(target.browserFSSetting as MountConfiguration<Backend>).then(
+            async () => {
+                if (target.client && target.client instanceof RealFSClient) await target.client.ready;
+                ReImplementationObject.fs = ZenFS_fs;
+                ReImplementationObject.path = ZenFS_path;
                 if (Settings.plugins[this.name].safeMode == undefined || Settings.plugins[this.name].safeMode == false)
                     // @ts-ignore
                     windowBdCompatLayer.fsReadyPromise.resolve();
-            });
-        }
+            }
+        );
+
         // const Utils = {
         //     stream2buffer(stream) {
         //         return new Promise((resolve, reject) => {
@@ -318,7 +263,7 @@ export default definePlugin({
                     return ev2;
                 },
                 get get() {
-                    if (Settings.plugins['BDCompatLayer'].enableExperimentalRequestPolyfills === true)
+                    if (Settings.plugins[PLUGIN_NAME].enableExperimentalRequestPolyfills === true)
                         return this.get_;
                     return undefined;
                 }
@@ -354,12 +299,15 @@ export default definePlugin({
                 return fakeRequest;
             },
             get request() {
-                if (Settings.plugins['BDCompatLayer'].enableExperimentalRequestPolyfills === true)
+                if (Settings.plugins[PLUGIN_NAME].enableExperimentalRequestPolyfills === true)
                     return this.request_;
                 return undefined;
             },
-            events: {
-                EventEmitter: FakeEventEmitter,
+            get events() {
+                const Original = FakeEventEmitter;
+                const Copy = class extends Original { };
+                Object.defineProperty(Copy, "EventEmitter", { value: Copy });
+                return Copy as typeof Copy & { EventEmitter: typeof FakeEventEmitter; };
             },
             electron: {},
             process: {
@@ -367,13 +315,11 @@ export default definePlugin({
                     // HOME: "/home/fake",
                     _home_secret: "",
                     get HOME() {
-                        if (reallyUsePoorlyMadeRealFs) {
-                            return this._home_secret;
-                        }
                         const target = "/home/fake";
                         FSUtils.mkdirSyncRecursive(target);
                         return target;
-                    }
+                    },
+                    NODE_ENV: "production",
                 },
             },
         };
@@ -418,7 +364,7 @@ export default definePlugin({
             };
         })();
 
-        const injectedAndPatched = new Promise<void>((resolve, reject) => {
+        const injectedAndPatched_ = new Promise<void>((resolve, reject) => {
             ReactUtils_filler.setup({ React: React });
             addDiscordModules(proxyUrl).then(DiscordModulesInjectorOutput => {
                 const DiscordModules = DiscordModulesInjectorOutput.output;
@@ -435,6 +381,16 @@ export default definePlugin({
                     resolve();
                 }, reject);
             }, reject);
+        });
+        const injectedAndPatched = new Promise((resolve, reject) => {
+            checkCorsProxyUrlCsp().then(result => {
+                if (!result) {
+                    compat_logger.error("CORS Proxy CSP rejected.");
+                    reject();
+                    return;
+                }
+                injectedAndPatched_.then(resolve, reject);
+            });
         });
 
         const fakeLoading = document.createElement("span");

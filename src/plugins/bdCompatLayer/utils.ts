@@ -403,7 +403,8 @@ export const FSUtils = {
                         reject(err);
                         return;
                     }
-                    const file = new Blob([data]);
+                    const blobData = typeof data === "string" ? data : new Uint8Array(data);
+                    const file = new Blob([blobData]);
                     const blobUrl = URL.createObjectURL(file);
                     const newA = document.createElement("a");
                     newA.href = blobUrl;
@@ -490,7 +491,7 @@ export const ZIPUtils = {
         // const data = await zipWriter.close();
         // console.log(data);
         const data = fflate.zipSync(fileSystem);
-        return new Blob([data], { type: "application/zip" });
+        return new Blob([new Uint8Array(data)], { type: "application/zip" });
     },
     async importZip() {
         const fs = window.require("fs");
@@ -610,7 +611,7 @@ export function patchReadFileSync(fs) {
 }
 
 export function aquireNative() {
-    return Object.values(VencordNative.pluginHelpers)
+    return Object.values(VencordNative.pluginHelpers) // @ts-expect-error
         .find(m => m.bdCompatLayerUniqueId) as PluginNative<typeof import("./native")>;
 }
 

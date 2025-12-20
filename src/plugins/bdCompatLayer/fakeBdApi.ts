@@ -23,14 +23,30 @@ const VenComponents = OptionComponentMap;
 import { OptionComponentMap } from "@components/settings/tabs/plugins/components";
 import { ModalAPI } from "@utils/modal";
 import { OptionType, PluginOptionBase, PluginOptionComponent, PluginOptionCustom, PluginOptionSelect, PluginOptionSlider } from "@utils/types";
-import { Forms, lodash, Text } from "@webpack/common";
+import { findLazy, fluxStores } from "@webpack";
+import { Forms, lodash, React, Text, Toasts } from "@webpack/common";
 
 import { ColorPickerSettingComponent } from "./components/ColorPickerSetting";
 import { PLUGIN_NAME } from "./constants";
 import { fetchWithCorsProxyFallback } from "./fakeStuff";
 import { AssembledBetterDiscordPlugin } from "./pluginConstructor";
-import { getModule as BdApi_getModule, monkeyPatch as BdApi_monkeyPatch, Patcher, ReactUtils_filler } from "./stuffFromBD";
+import { getModule as BdApi_getModule, monkeyPatch as BdApi_monkeyPatch, Patcher, ReactUtils_filler, wrapFilter } from "./stuffFromBD";
+import { BdApi_mapObject } from "./stuffFromBD_2";
 import { addLogger, compat_logger, createTextForm, docCreateElement, ObjectMerger } from "./utils";
+
+function getDefaultKey(module: any) {
+    if (!module.exports) return undefined;
+    if (module.exports.__esModule && module.exports.default) {
+        return "default";
+    }
+    if (module.exports.Z) {
+        return "Z";
+    }
+    if (module.exports.ZP) {
+        return "ZP";
+    }
+    return undefined;
+}
 
 class PatcherWrapper {
     #label;
@@ -277,8 +293,16 @@ export const WebpackHolder = {
         // return result;
         return Vencord.Webpack.wreq.m;
     },
-    get getMangled() {
-        return Vencord.Webpack.mapMangledModule;
+    getMangled(f, m, opt: { raw?: boolean; } = {}) {
+        const { raw = false, ...rest } = opt;
+        if (typeof f === "string" || f instanceof RegExp) {
+            f = WebpackHolder.Filters.bySource(f);
+        }
+        let module = typeof f === "number" ? Vencord.Webpack.wreq.c[f] : WebpackHolder.getModule(f, { raw, ...rest });
+        if (!module) return {};
+        if (raw) module = module.exports;
+
+        return BdApi_mapObject(module, m);
     },
     getWithKey(filter, options: { target?: any; } = {}) {
         const { target: opt_target = null, ...unrelated } = options;
@@ -364,15 +388,95 @@ export const WebpackHolder = {
             },
         });
     },
-    getBulk(...mapping: { filter: (m: any) => unknown, searchExports?: boolean }[]) {
-        const len = mapping.length;
-        const result = new Array(len);
-        for (let i = 0; i < len; i++) {
-            const { filter, ...opts } = mapping[i];
-            result[i] = WebpackHolder.getModule(filter, opts)
+    getBulk(...queries: any[]) {
+        const returnedModules = Array(queries.length);
+
+        const shouldExitEarly = queries.every((m: any) => !m.all);
+        const shouldExit = () => shouldExitEarly && queries.every((query: any, index: number) => !query.all && index in returnedModules);
+
+        if (queries.length === 0) return returnedModules;
+
+        const webpackModules = Object.values(Vencord.Webpack.wreq.c);
+        webpack: for (let i = 0; i < webpackModules.length; i++) {
+            const module = webpackModules[i];
+
+            queries: for (let index = 0; index < queries.length; index++) {
+                const { filter: f_filter, all = false, defaultExport = true, searchExports = false, searchDefault = true, raw = false, map, fatal } = queries[index];
+
+                const filter = wrapFilter(f_filter);
+                if (!all && index in returnedModules) {
+                    continue;
+                }
+
+                if (filter(module.exports, module, module.id)) {
+                    let trueItem = raw ? module : module.exports;
+                    if (map) {
+                        trueItem = BdApi_mapObject(raw ? module.exports : trueItem, map);
+                    }
+
+                    if (!all) {
+                        returnedModules[index] = trueItem;
+                        if (shouldExit()) break webpack;
+                        continue;
+                    }
+
+                    if (!returnedModules[index]) returnedModules[index] = [];
+                    returnedModules[index].push(trueItem);
+                }
+
+                let defaultKey: string | undefined;
+                const exportKeys: string[] = [];
+                if (searchExports) exportKeys.push(...Object.keys(module.exports));
+                else if (searchDefault && (defaultKey = getDefaultKey(module))) exportKeys.push(defaultKey);
+
+                for (const key of exportKeys) {
+                    const exported = module.exports[key];
+
+                    if (filter(exported, module, module.id)) {
+                        let value: any;
+                        if (!defaultExport && defaultKey === key) {
+                            value = raw ? module : module.exports;
+                            if (map) value = BdApi_mapObject(module.exports, map);
+                        } else {
+                            value = raw ? (map ? module : exported) : exported;
+                            if (map) value = BdApi_mapObject(raw ? module.exports : exported, map);
+                        }
+
+                        if (!all) {
+                            returnedModules[index] = value;
+                            if (shouldExit()) break webpack;
+                            continue queries;
+                        }
+
+                        if (!returnedModules[index]) returnedModules[index] = [];
+                        returnedModules[index].push(value);
+                    }
+                }
+            }
         }
-        return result;
+
+        for (let index = 0; index < queries.length; index++) {
+            const query = queries[index];
+            const exists = index in returnedModules;
+
+            if (query.fatal && !exists) {
+                if (query.all && (!Array.isArray(returnedModules[index]) || returnedModules[index].length === 0)) {
+                    throw new Error(`Failed to find modules for query ${index}`);
+                }
+                if (!exists) throw new Error(`Failed to find module for query ${index}`);
+            }
+
+            if (!exists) {
+                returnedModules[index] = {};
+            }
+        }
+        return returnedModules;
     },
+    Stores: new Proxy({}, {
+        get(t, p, r) {
+            return fluxStores.get(p.toString());
+        },
+    }),
 };
 
 export const DataHolder = {
@@ -456,6 +560,10 @@ type SettingsType = {
 };
 
 const _ReactDOM_With_createRoot = {} as typeof Vencord.Webpack.Common.ReactDOM & { createRoot: typeof Vencord.Webpack.Common.createRoot; };
+const ConfirmationModal = findLazy(x => x.ConfirmModal).ConfirmModal;
+const ButtonProps = findLazy(x => x && x.Button && x.Button.Looks && x.Button.Colors).Button;
+
+const ToastTypeNumToName = (num: number) => Object.values(Toasts.Type)[num];
 
 export const UIHolder = {
     alert(title: string, content: any) {
@@ -465,19 +573,9 @@ export const UIHolder = {
         compat_logger.error(new Error("Not implemented."));
     },
     showToast(message, toastType = 1) {
-        const { createToast, showToast } = getGlobalApi().Webpack.getModule(x => x.createToast && x.showToast);
-        showToast(createToast(message || "Success !", [0, 1, 2, 3, 4, 5].includes(toastType) ? toastType : 1)); // showToast has more then 3 toast types?
-        // uhmm.. aschtually waht is 4.
+        Toasts.show(Toasts.create(message || "Success !", [0, 1, 2, 3, 4, 5].includes(toastType) ? ToastTypeNumToName(toastType) : ToastTypeNumToName(1)));
     },
     showConfirmationModal(title: string, content: any, settings: any = {}) {
-        // The stolen code from my beloved davyy has been removed. :(
-        const Colors = {
-            BRAND: getGlobalApi().findModuleByProps("colorBrand").colorBrand
-        };
-        const ConfirmationModal = getGlobalApi().Webpack.getModule(x => x.ConfirmModal).ConfirmModal;
-        const { openModal } = ModalAPI;
-        // const { openModal } = getGlobalApi().Webpack.getModule(x => x.closeModal && x.openModal && x.hasModalOpen);
-
         const {
             confirmText = settings.confirmText || "Confirm",
             cancelText = settings.cancelText || "Cancel",
@@ -486,17 +584,9 @@ export const UIHolder = {
             extraReact = settings.extraReact || [],
         } = settings;
 
-        const moreReact: React.ReactElement[] = [];
+        const moreReact: React.ReactElement[] = [...extraReact];
 
-        const whiteTextStyle = {
-            color: "white",
-        };
-
-        const { React } = getGlobalApi();
-        const whiteTextContent = React.createElement("div", { style: whiteTextStyle }, content);
-
-        moreReact.push(whiteTextContent);
-        // moreReact.push(...extraReact) // IM ADDING MORE DIV POSSIBILITESS !!!!
+        moreReact.unshift(React.createElement(Forms.FormText, {}, content));
 
         // I dont know how anyone would find this useful but screw it yeah?
         // Someone will find it useful one day
@@ -515,13 +605,10 @@ export const UIHolder = {
         }
         );
         */
-        extraReact.forEach(reactElement => {
-            moreReact.push(reactElement);
-        });
 
-        openModal(props => React.createElement(ConfirmationModal, Object.assign({
+        ModalAPI.openModal(props => React.createElement(ConfirmationModal, Object.assign({
             header: title,
-            confirmButtonColor: Colors.BRAND,
+            confirmButtonColor: ButtonProps.Colors.BRAND,
             confirmText: confirmText,
             cancelText: cancelText,
             onConfirm: onConfirm,
@@ -741,12 +828,12 @@ export const UIHolder = {
                             stickToMarkers?: boolean,
                             min?: number,
                             max?: number,
-                            markers?: (number | { label: string, value: number })[],
+                            markers?: (number | { label: string, value: number; })[],
                         };
 
                         if (currentAsSliderCompatible.markers) {
                             if (typeof currentAsSliderCompatible.markers[0] === "object") {
-                                fakeOptionAsSlider.markers = currentAsSliderCompatible.markers.map(x => (x as { label: string, value: number }).value);
+                                fakeOptionAsSlider.markers = currentAsSliderCompatible.markers.map(x => (x as { label: string, value: number; }).value);
                             } else {
                                 fakeOptionAsSlider.markers = currentAsSliderCompatible.markers as number[];
                             }
@@ -1178,6 +1265,10 @@ class BdApiReImplementationInstance {
         },
         extend: ObjectMerger.perform.bind(ObjectMerger),
         debounce: lodash.debounce,
+        className: (...a: any[]) => a.flatMap(v => typeof v === "object" && !Array.isArray(v)
+            ? Object.keys(v).filter(k => v[k])
+            : v
+        ).filter(Boolean).join(" "),
     };
     get UI() {
         return UIHolder;

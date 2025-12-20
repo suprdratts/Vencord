@@ -1,3 +1,40 @@
+# IMPORTANT: This repository is getting discontinued on December 23.
+# See https://github.com/Davilarek/Vencord/issues/48 for future and migration!
+
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+
 ## In a galaxy of coding capers... When BetterDiscord and Vencord dared to merge...
 ## Behold... BetterVencord!
 ![image](https://github.com/Davilarek/Vencord/assets/62715937/7126afa2-6086-4675-9427-e3f0cf542651)

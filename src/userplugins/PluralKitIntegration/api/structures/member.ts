@@ -32,7 +32,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import axios from "axios";
 import * as chrono from "chrono-node";
 import tc, { Instance } from "tinycolor2";
 import validUrl from "valid-url";
@@ -50,7 +49,7 @@ const parser = chrono.casual.clone();
 parser.refiners.push({
     refine: (_ctx, res) => {
         res.forEach(r => {
-            if(!r.start.isCertain("year")) r.start.assign("year", 2004);
+            if (!r.start.isCertain("year")) r.start.assign("year", 2004);
         });
 
         return res;
@@ -58,23 +57,23 @@ parser.refiners.push({
 });
 
 function hasKeys(obj: any, keys: Array<string>) {
-    if(typeof obj !== "object") return false;
+    if (typeof obj !== "object") return false;
     var okeys = Object.keys(obj);
 
-    for(var k of keys) if(!okeys.includes(k)) return false;
+    for (var k of keys) if (!okeys.includes(k)) return false;
 
     return true;
 }
 
 const enum MemberPrivacyKeys {
-    Visibility = 	"visibility",
-    Name = 			"name_privacy",
-    Description = 	"description_privacy",
-    Birthday = 		"birthday_privacy",
-    Pronouns = 		"pronoun_privacy",
-    Avatar = 		"avatar_privacy",
-    Metadata = 		"metadata_privacy",
-    Proxy = 		"proxy_privacy"
+    Visibility = "visibility",
+    Name = "name_privacy",
+    Description = "description_privacy",
+    Birthday = "birthday_privacy",
+    Pronouns = "pronoun_privacy",
+    Avatar = "avatar_privacy",
+    Metadata = "metadata_privacy",
+    Proxy = "proxy_privacy"
 }
 
 const pKeys = [
@@ -100,9 +99,9 @@ export interface MemberPrivacy {
 }
 
 const KEYS: any = {
-    id: { },
-    uuid: { },
-    system: { },
+    id: {},
+    uuid: {},
+    system: {},
     name: {
         test: (n: string) => n.length && n.length <= 100,
         err: "Name must be 100 characters or less",
@@ -119,7 +118,7 @@ const KEYS: any = {
     },
     birthday: {
         test: (d: string | Date) => {
-            if(d instanceof Date) return true;
+            if (d instanceof Date) return true;
             else {
                 var d2 = parser.parseDate(d);
                 return d2 && !isNaN(d2.valueOf());
@@ -127,9 +126,9 @@ const KEYS: any = {
         },
         err: "Birthday must be a valid date",
         transform: (d: string | Date) => {
-            if(!d) return d;
+            if (!d) return d;
             var date: Date | null;
-            if(!(d instanceof Date)) date = parser.parseDate(d);
+            if (!(d instanceof Date)) date = parser.parseDate(d);
             else date = d;
             return formatDate(date!);
         },
@@ -141,34 +140,34 @@ const KEYS: any = {
     },
     avatar_url: {
         test: async (a: string) => {
-            if(!validUrl.isWebUri(a)) return false;
+            if (!validUrl.isWebUri(a)) return false;
             try {
-                var data = await axios.head(a);
-                if(data.headers["content-type"]?.startsWith("image")) return true;
+                var data = await fetch(a, { method: "HEAD" });
+                if (data.headers.get("content-type")?.startsWith("image")) return true;
                 return false;
-            } catch(e) { return false; }
+            } catch (e) { return false; }
         },
         err: "Avatar URL must be a valid image and less than 256 characters"
     },
     webhook_avatar_url: {
         test: async (a: string) => {
-            if(!validUrl.isWebUri(a)) return false;
+            if (!validUrl.isWebUri(a)) return false;
             try {
-                var data = await axios.head(a);
-                if(data.headers["content-type"]?.startsWith("image")) return true;
+                var data = await fetch(a, { method: "HEAD" });
+                if (data.headers.get("content-type")?.startsWith("image")) return true;
                 return false;
-            } catch(e) { return false; }
+            } catch (e) { return false; }
         },
         err: "Webhook avatar URL must be a valid image and less than 256 characters"
     },
     banner: {
         test: async (a: string) => {
-            if(!validUrl.isWebUri(a)) return false;
+            if (!validUrl.isWebUri(a)) return false;
             try {
-                var data = await axios.head(a);
-                if(data.headers["content-type"]?.startsWith("image")) return true;
+                var data = await fetch(a, { method: "HEAD" });
+                if (data.headers.get("content-type")?.startsWith("image")) return true;
                 return false;
-            } catch(e) { return false; }
+            } catch (e) { return false; }
         },
         err: "Banner URL must be a valid image and less than 256 characters"
     },
@@ -195,7 +194,7 @@ const KEYS: any = {
         test: (v: any) => typeof v === "boolean",
         err: "Autoproxy status must be a boolean (true or false)"
     },
-    message_count: { },
+    message_count: {},
     last_message_timestamp: {
         init: (d: string | Date) => d ? new Date(d) : d
     },
@@ -266,9 +265,9 @@ export default class Member implements IMember {
 
     constructor(api: API, data: Partial<Member>) {
         this.#api = api;
-        for(var k in data) {
-            if(KEYS[k]) {
-                if(KEYS[k].init) data[k] = KEYS[k].init(data[k]);
+        for (var k in data) {
+            if (KEYS[k]) {
+                if (KEYS[k].init) data[k] = KEYS[k].init(data[k]);
                 this[k] = data[k];
             }
         }
@@ -276,7 +275,7 @@ export default class Member implements IMember {
 
     async patch(token?: string) {
         var data = await this.#api.patchMember({ member: this.id, ...this, token });
-        for(var k in data) if(KEYS[k]) this[k] = data[k];
+        for (var k in data) if (KEYS[k]) this[k] = data[k];
         return this;
     }
 
@@ -313,7 +312,7 @@ export default class Member implements IMember {
 
     async getGuildSettings(guild: string, token?: string) {
         var settings = await this.#api.getMemberGuildSettings({ member: this.id, guild, token });
-        if(!this.settings) this.settings = new Map();
+        if (!this.settings) this.settings = new Map();
         this.settings.set(guild, settings);
         return settings;
     }

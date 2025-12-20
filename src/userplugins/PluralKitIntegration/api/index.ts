@@ -32,11 +32,10 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import axios, { AxiosInstance } from "axios";
-
+import { settings } from "../";
+// import rateLimit from "./rate-limiter";
 import ROUTES from "./routes";
 import APIError from "./structures/apiError";
-import rateLimit from "./rate-limiter";
 import Group, { IGroup } from "./structures/group";
 import Member, { IMember } from "./structures/member";
 import MemberGuildSettings, { IMemberGuildSettings } from "./structures/memberGuildSettings";
@@ -46,41 +45,40 @@ import System, { ISystem } from "./structures/system";
 import SystemAutoproxySettings, { ISystemAutoproxySettings } from "./structures/systemAutoproxySettings";
 import SystemConfig, { ISystemConfig } from "./structures/systemConfig";
 import SystemGuildSettings, { ISystemGuildSettings } from "./structures/systemGuildSettings";
-import { settings } from "../"
 
 export interface APIData {
-	base_url?: string;
-	version?: number;
-	token?: string;
-	user_agent?: string;
-	debug?: boolean;
+    base_url?: string;
+    version?: number;
+    token?: string;
+    user_agent?: string;
+    debug?: boolean;
 }
 
 export interface RequestOptions {
-	token?: string;
+    token?: string;
 }
 
 export interface GetSystemOptions extends RequestOptions {
-	system?: string;
-	fetch?: Array<SystemFetchOptions>;
-	raw?: boolean;
+    system?: string;
+    fetch?: Array<SystemFetchOptions>;
+    raw?: boolean;
 }
 
 export const enum SystemFetchOptions {
-	Members = "members",
-	Fronters = "fronters",
-	Switches = "switches",
-	Groups = "groups",
-	Config = "config",
-	GroupMembers = "group members",
+    Members = "members",
+    Fronters = "fronters",
+    Switches = "switches",
+    Groups = "groups",
+    Config = "config",
+    GroupMembers = "group members",
 }
 
 export type RequestData<T extends {}> = T & {
-	token?: string;
-}
+    token?: string;
+};
 
 class PKAPI {
-    #inst: AxiosInstance;
+    #inst: any; // TODO: node:fetch instance type
     #_base: string = "https://api.pluralkit.me";
     #_version: number = 2;
     #debug: boolean = false;
@@ -91,40 +89,36 @@ class PKAPI {
         this.#_base = (data?.base_url ?? "https://api.pluralkit.me");
         this.#_version = (data?.version ?? 2);
         this.#debug = data?.debug ?? false;
-
-        this.#inst = rateLimit(axios.create({
-            validateStatus: s => s < 300 && s > 100,
-            baseURL: `${this.#_base}/v${this.#_version}`,
-        }));
+        this.#inst = `${this.#_base}/v${this.#_version}`;
     }
 
     /*
-	**			SYSTEM FUNCTIONS
-	*/
+    **			SYSTEM FUNCTIONS
+    */
 
-    async getSystem(data: GetSystemOptions = { }) {
+    async getSystem(data: GetSystemOptions = {}) {
         const token = settings.store.token ?? data.token;
-        if(data.system == null && !token) throw new Error("Must provide a token or ID.");
+        if (data.system == null && !token) throw new Error("Must provide a token or ID.");
         let sys: System;
         let resp: { data: Partial<System>; };
         try {
-            if(!data.system) {
+            if (!data.system) {
                 resp = await this.handle(ROUTES[this.#_version].GET_OWN_SYSTEM(), { token });
                 sys = new System(this, resp.data);
             } else {
-                if(data.system!.length > 5) resp = await this.handle(ROUTES[this.#_version].GET_ACCOUNT(data.system));
+                if (data.system!.length > 5) resp = await this.handle(ROUTES[this.#_version].GET_ACCOUNT(data.system));
                 else resp = await this.handle(ROUTES[this.#_version].GET_SYSTEM(data.system!));
                 sys = new System(this, resp.data);
             }
 
-            if(data.fetch) {
-                if(data.fetch.includes(SystemFetchOptions.Members)) sys.members = await sys.getMembers(token);
-                if(data.fetch.includes(SystemFetchOptions.Fronters)) sys.fronters = await sys.getFronters(token);
-                if(data.fetch.includes(SystemFetchOptions.Switches)) sys.switches = await sys.getSwitches(token, data.raw);
-                if(data.fetch.includes(SystemFetchOptions.Groups)) sys.groups = await sys.getGroups(token, data.fetch.includes(SystemFetchOptions.GroupMembers));
-                if(data.fetch.includes(SystemFetchOptions.Config)) sys.config = await sys.getSettings(token);
+            if (data.fetch) {
+                if (data.fetch.includes(SystemFetchOptions.Members)) sys.members = await sys.getMembers(token);
+                if (data.fetch.includes(SystemFetchOptions.Fronters)) sys.fronters = await sys.getFronters(token);
+                if (data.fetch.includes(SystemFetchOptions.Switches)) sys.switches = await sys.getSwitches(token, data.raw);
+                if (data.fetch.includes(SystemFetchOptions.Groups)) sys.groups = await sys.getGroups(token, data.fetch.includes(SystemFetchOptions.GroupMembers));
+                if (data.fetch.includes(SystemFetchOptions.Config)) sys.config = await sys.getSettings(token);
             }
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -137,13 +131,13 @@ class PKAPI {
 
     async patchSystem(data: System | Partial<System> = {}) {
         var token = settings.store.token ?? data.token;
-        if(!token) throw new Error("PATCH requires a token.");
+        if (!token) throw new Error("PATCH requires a token.");
 
         try {
             var sys = data instanceof System ? data : new System(this, data);
             var body = await sys.verify();
             var resp = await this.handle(ROUTES[this.#_version].PATCH_SYSTEM(), { token, body });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -151,14 +145,14 @@ class PKAPI {
     }
 
     async getSystemConfig(data: RequestOptions = {}) {
-        if(this.version < 2) throw new Error("System settings are only available for API version 2.");
+        if (this.version < 2) throw new Error("System settings are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("Getting system settings requires a token.");
+        if (!token) throw new Error("Getting system settings requires a token.");
 
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_SYSTEM_CONFIG(), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -166,10 +160,10 @@ class PKAPI {
     }
 
     async patchSystemConfig(data: RequestData<ISystemConfig>) {
-        if(this.version < 2) throw new Error("System settings are only available for API version 2.");
+        if (this.version < 2) throw new Error("System settings are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("PATCH requires a token.");
+        if (!token) throw new Error("PATCH requires a token.");
 
         try {
             var systemConfig = data instanceof SystemConfig ? data : new SystemConfig(this, data);
@@ -178,23 +172,23 @@ class PKAPI {
                 ROUTES[this.#_version].PATCH_SYSTEM_CONFIG(),
                 { token, body }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
         return new SystemConfig(this, resp.data);
     }
 
-    async getSystemGuildSettings(data: { token?: string, guild: string }) {
-        if(this.version < 2) throw new Error("Guild settings are only available for API version 2.");
+    async getSystemGuildSettings(data: { token?: string, guild: string; }) {
+        if (this.version < 2) throw new Error("Guild settings are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("Getting guild settings requires a token.");
-        if(!data.guild) throw new Error("Must provide a guild ID.");
+        if (!token) throw new Error("Getting guild settings requires a token.");
+        if (!data.guild) throw new Error("Must provide a guild ID.");
 
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_SYSTEM_GUILD_SETTINGS(data.guild), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -202,11 +196,11 @@ class PKAPI {
     }
 
     async patchSystemGuildSettings(data: RequestData<ISystemGuildSettings>) {
-        if(this.version < 2) throw new Error("Guild settings are only available for API version 2.");
+        if (this.version < 2) throw new Error("Guild settings are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("PATCH requires a token.");
-        if(!data.guild) throw new Error("Must provide a guild ID.");
+        if (!token) throw new Error("PATCH requires a token.");
+        if (!data.guild) throw new Error("Must provide a guild ID.");
 
         try {
             var systemGuildSettings = data instanceof SystemGuildSettings ? data : new SystemGuildSettings(this, data);
@@ -215,23 +209,23 @@ class PKAPI {
                 ROUTES[this.#_version].PATCH_SYSTEM_GUILD_SETTINGS(data.guild),
                 { token, body }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
         return new SystemGuildSettings(this, { ...resp.data, guild: data.guild });
     }
 
-    async getSystemAutoproxySettings(data: { token?: string, guild: string }) {
-        if(this.version < 2) throw new Error("Autoproxy settings are only available for API version 2.");
+    async getSystemAutoproxySettings(data: { token?: string, guild: string; }) {
+        if (this.version < 2) throw new Error("Autoproxy settings are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("Getting autoproxy settings requires a token.");
-        if(!data.guild) throw new Error("Must provide a guild ID.");
+        if (!token) throw new Error("Getting autoproxy settings requires a token.");
+        if (!data.guild) throw new Error("Must provide a guild ID.");
 
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_SYSTEM_AUTOPROXY_SETTINGS(data.guild), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -239,11 +233,11 @@ class PKAPI {
     }
 
     async patchSystemAutoproxySettings(data: RequestData<ISystemAutoproxySettings>) {
-        if(this.version < 2) throw new Error("Autoproxy settings are only available for API version 2.");
+        if (this.version < 2) throw new Error("Autoproxy settings are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("PATCH requires a token.");
-        if(!data.guild) throw new Error("Must provide a guild ID.");
+        if (!token) throw new Error("PATCH requires a token.");
+        if (!data.guild) throw new Error("Must provide a guild ID.");
 
         try {
             var systemApSettings = data instanceof SystemAutoproxySettings ? data : new SystemAutoproxySettings(this, data);
@@ -252,7 +246,7 @@ class PKAPI {
                 ROUTES[this.#_version].PATCH_SYSTEM_AUTOPROXY_SETTINGS(data.guild),
                 { token, body }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -260,42 +254,42 @@ class PKAPI {
     }
 
     /*
-	**			MEMBER FUNCTIONS
-	*/
+    **			MEMBER FUNCTIONS
+    */
 
     async createMember(data: RequestData<Partial<IMember>>) {
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("POST requires a token.");
+        if (!token) throw new Error("POST requires a token.");
 
         try {
             var mem = new Member(this, data);
             var body = await mem.verify();
             var resp = await this.handle(ROUTES[this.#_version].ADD_MEMBER(), { token, body });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
         return new Member(this, resp.data);
     }
 
-    async getMember(data: { token?: string, member: string }) {
+    async getMember(data: { token?: string, member: string; }) {
         const token = settings.store.token || data.token;
         const resp = await this.handle(ROUTES[this.#_version].GET_MEMBER(data.member), { token });
-        if(data.member == null) throw new Error("Must provide a member ID.");
+        if (data.member == null) throw new Error("Must provide a member ID.");
         try {
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
         return new Member(this, resp.data);
     }
 
-    async getMembers(data: { token?: string, system: string }) {
+    async getMembers(data: { token?: string, system: string; }) {
         const token = settings.store.token || data.token;
         const system = data.system ?? "@me";
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_MEMBERS(system), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -303,45 +297,45 @@ class PKAPI {
         return new Map<string, Member>(mems);
     }
 
-    async patchMember(data: RequestData<Partial<IMember> & { member: string }>) {
-        if(data.member == null) throw new Error("Must provide a member ID.");
+    async patchMember(data: RequestData<Partial<IMember> & { member: string; }>) {
+        if (data.member == null) throw new Error("Must provide a member ID.");
         const token = settings.store.token || data.token;
-        if(!token) throw new Error("PATCH requires a token.");
+        if (!token) throw new Error("PATCH requires a token.");
 
         try {
             const mem = data instanceof Member ? data : new Member(this, data);
             const body = await mem.verify();
             var resp = await this.handle(ROUTES[this.#_version].PATCH_MEMBER(data.member), { token, body });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
         return new Member(this, resp.data);
     }
 
-    async deleteMember(data: { token?: string, member: string }) {
-        if(data.member == null) throw new Error("Must provide a member ID.");
+    async deleteMember(data: { token?: string, member: string; }) {
+        if (data.member == null) throw new Error("Must provide a member ID.");
         const token = settings.store.token || data.token;
-        if(!token) throw new Error("DELETE requires a token.");
+        if (!token) throw new Error("DELETE requires a token.");
         try {
             return await this.handle(ROUTES[this.#_version].DELETE_MEMBER(data.member), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
     }
 
-    async getMemberGroups(data: { token?: string, member: string }) {
+    async getMemberGroups(data: { token?: string, member: string; }) {
         const token = settings.store.token || data.token;
         const resp = await this.handle(
             ROUTES[this.#_version].GET_MEMBER_GROUPS(data.member),
             { token }
         );
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
-        if(!data.member) throw new Error("Must provide a member ID.");
+        if (!data.member) throw new Error("Must provide a member ID.");
 
         try {
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -350,16 +344,16 @@ class PKAPI {
     }
 
     async addMemberGroups(data: {
-		token?: string,
-		member: string,
-		groups: string[] | Group[]
-	}) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+        token?: string,
+        member: string,
+        groups: string[] | Group[];
+    }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("POST requires a token.");
-        if(!data.member) throw new Error("Must provide a member ID.");
-        if(!data.groups || !Array.isArray(data.groups))
+        if (!token) throw new Error("POST requires a token.");
+        if (!data.member) throw new Error("Must provide a member ID.");
+        if (!data.groups || !Array.isArray(data.groups))
             throw new Error("Must provide an array of groups.");
         var { groups } = data;
         groups = groups.map((g: Group | string) => g instanceof Group ? g.id : g);
@@ -369,22 +363,22 @@ class PKAPI {
                 ROUTES[this.#_version].ADD_MEMBER_GROUPS(data.member),
                 { token, body: groups }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
     }
 
     async removeMemberGroups(data: {
-		token?: string,
-		member: string,
-		groups: string[] | Group[]
-	}) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+        token?: string,
+        member: string,
+        groups: string[] | Group[];
+    }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("POST requires a token.");
-        if(!data.member) throw new Error("Must provide a member ID.");
-        if(!data.groups || !Array.isArray(data.groups))
+        if (!token) throw new Error("POST requires a token.");
+        if (!data.member) throw new Error("Must provide a member ID.");
+        if (!data.groups || !Array.isArray(data.groups))
             throw new Error("Must provide an array of groups.");
         var { groups } = data;
         groups = groups.map((g: Group | string) => g instanceof Group ? g.id : g);
@@ -394,22 +388,22 @@ class PKAPI {
                 ROUTES[this.#_version].REMOVE_MEMBER_GROUPS(data.member),
                 { token, body: groups }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
     }
 
     async setMemberGroups(data: {
-		token?: string,
-		member: string,
-		groups: string[] | Group[]
-	}) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+        token?: string,
+        member: string,
+        groups: string[] | Group[];
+    }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("POST requires a token.");
-        if(!data.member) throw new Error("Must provide a member ID.");
-        if(!data.groups || !Array.isArray(data.groups))
+        if (!token) throw new Error("POST requires a token.");
+        if (!data.member) throw new Error("Must provide a member ID.");
+        if (!data.groups || !Array.isArray(data.groups))
             throw new Error("Must provide an array of groups.");
         var { groups } = data;
         groups = groups.map((g: Group | string) => g instanceof Group ? g.id : g);
@@ -419,29 +413,29 @@ class PKAPI {
                 ROUTES[this.#_version].SET_MEMBER_GROUPS(data.member),
                 { token, body: groups }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
     }
 
     async getMemberGuildSettings(data: {
-		token?: string,
-		member: string,
-		guild: string
-	}) {
-        if(this.version < 2) throw new Error("Guild settings are only available for API version 2.");
+        token?: string,
+        member: string,
+        guild: string;
+    }) {
+        if (this.version < 2) throw new Error("Guild settings are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("Getting guild settings requires a token.");
-        if(!data.member) throw new Error("Must provide a member ID.");
-        if(!data.guild) throw new Error("Must provide a guild ID.");
+        if (!token) throw new Error("Getting guild settings requires a token.");
+        if (!data.member) throw new Error("Must provide a member ID.");
+        if (!data.guild) throw new Error("Must provide a guild ID.");
 
         try {
             var resp = await this.handle(
                 ROUTES[this.#_version].GET_MEMBER_GUILD_SETTINGS(data.member, data.guild),
                 { token }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -449,12 +443,12 @@ class PKAPI {
     }
 
     async patchMemberGuildSettings(data: RequestData<Partial<IMemberGuildSettings>>) {
-        if(this.version < 2) throw new Error("Guild settings are only available for API version 2.");
+        if (this.version < 2) throw new Error("Guild settings are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("Getting guild settings requires a token.");
-        if(!data.member) throw new Error("Must provide a member ID.");
-        if(!data.guild) throw new Error("Must provide a guild ID.");
+        if (!token) throw new Error("Getting guild settings requires a token.");
+        if (!data.member) throw new Error("Must provide a member ID.");
+        if (!data.guild) throw new Error("Must provide a guild ID.");
 
         try {
             var memberGuildSettings = data instanceof MemberGuildSettings ? data : new MemberGuildSettings(this, data);
@@ -463,7 +457,7 @@ class PKAPI {
                 ROUTES[this.#_version].PATCH_MEMBER_GUILD_SETTINGS(data.member, data.guild),
                 { token, body }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -471,28 +465,28 @@ class PKAPI {
     }
 
     /*
-	**			GROUP FUNCTIONS
-	*/
+    **			GROUP FUNCTIONS
+    */
 
     async createGroup(data: RequestData<Partial<IGroup>>) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("POST requires a token.");
+        if (!token) throw new Error("POST requires a token.");
 
         try {
             var group = new Group(this, data);
             var body = await group.verify();
             var resp = await this.handle(ROUTES[this.#_version].ADD_GROUP(), { token, body });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
         return new Group(this, resp.data);
     }
 
-    async getGroups(data: { token?: string, system?: string, with_members?: boolean, raw?: boolean }) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+    async getGroups(data: { token?: string, system?: string, with_members?: boolean, raw?: boolean; }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token || data.token;
         var system = data.system ?? "@me";
@@ -501,94 +495,94 @@ class PKAPI {
         var groups: Group[] = [];
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_GROUPS(system, with_members), { token });
-            if(with_members && !data.raw) {
+            if (with_members && !data.raw) {
                 var memb_resp = await this.handle(ROUTES[this.#_version].GET_MEMBERS(system), { token });
                 var membs: Map<string, Member> = new Map(memb_resp.data.map((m: IMember) => [m.uuid, new Member(this, m)]));
                 groups = [];
-                for(var g of resp.data) {
+                for (var g of resp.data) {
                     var members = new Map();
-                    for(var m of g.members) {
+                    for (var m of g.members) {
                         var grabbed: Member | undefined = membs.get(m);
-                        if(grabbed) members.set(grabbed.id, grabbed);
+                        if (grabbed) members.set(grabbed.id, grabbed);
                     }
                     g.members = members;
                     groups.push(new Group(this, g));
                 }
             }
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
-        if(!with_members || data.raw) groups = resp.data.map((g: IGroup) => new Group(this, g));
+        if (!with_members || data.raw) groups = resp.data.map((g: IGroup) => new Group(this, g));
 
         return new Map<string, Group>(groups.map((g: Group) => [g.id, g]));
     }
 
     async getGroup(data: {
-		token?: string,
-		group: string,
-		fetch_members?: boolean
-	}) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+        token?: string,
+        group: string,
+        fetch_members?: boolean;
+    }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!data.group) throw new Error("Must provide group ID.");
+        if (!data.group) throw new Error("Must provide group ID.");
 
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_GROUP(data.group), { token });
             var group = new Group(this, resp.data);
 
-            if(data.fetch_members) group.members = await group.getMembers();
-        } catch(e) {
+            if (data.fetch_members) group.members = await group.getMembers();
+        } catch (e) {
             throw e;
         }
 
         return group;
     }
 
-    async patchGroup(data: RequestData<Partial<IGroup> & { group: string }>) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+    async patchGroup(data: RequestData<Partial<IGroup> & { group: string; }>) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
-        if(data.group == null) throw new Error("Must provide a group ID.");
+        if (data.group == null) throw new Error("Must provide a group ID.");
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("PATCH requires a token.");
+        if (!token) throw new Error("PATCH requires a token.");
 
         try {
             var group = data instanceof Group ? data : new Group(this, data);
             var body = await group.verify();
             var resp = await this.handle(ROUTES[this.#_version].PATCH_GROUP(data.group), { token, body });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
         return new Group(this, resp.data);
     }
 
-    async deleteGroup(data: { token?: string, group: string }) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+    async deleteGroup(data: { token?: string, group: string; }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
-        if(data.group == null) throw new Error("Must provide a group ID.");
+        if (data.group == null) throw new Error("Must provide a group ID.");
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("DELETE requires a token.");
+        if (!token) throw new Error("DELETE requires a token.");
 
         try {
             await this.handle(ROUTES[this.#_version].DELETE_GROUP(data.group), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
         return;
     }
 
-    async getGroupMembers(data: { token?: string, group: string }) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+    async getGroupMembers(data: { token?: string, group: string; }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!data.group) throw new Error("Must provide a group ID.");
+        if (!data.group) throw new Error("Must provide a group ID.");
 
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_GROUP_MEMBERS(data.group), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -597,16 +591,16 @@ class PKAPI {
     }
 
     async addGroupMembers(data: {
-		token?: string,
-		group: string,
-		members: string[] | Member[]
-	}) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+        token?: string,
+        group: string,
+        members: string[] | Member[];
+    }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("POST requires a token.");
-        if(!data.group) throw new Error("Must provide a group ID.");
-        if(!data.members || !Array.isArray(data.members))
+        if (!token) throw new Error("POST requires a token.");
+        if (!data.group) throw new Error("Must provide a group ID.");
+        if (!data.members || !Array.isArray(data.members))
             throw new Error("Must provide an array of members.");
         var { members } = data;
         members = members.map((m: Member | string) => m instanceof Member ? m.id : m);
@@ -616,22 +610,22 @@ class PKAPI {
                 ROUTES[this.#_version].ADD_GROUP_MEMBERS(data.group),
                 { token, body: members }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
     }
 
     async removeGroupMembers(data: {
-		token?: string,
-		group: string,
-		members: string[] | Member[]
-	}) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+        token?: string,
+        group: string,
+        members: string[] | Member[];
+    }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("POST requires a token.");
-        if(!data.group) throw new Error("Must provide a group ID.");
-        if(!data.members || !Array.isArray(data.members))
+        if (!token) throw new Error("POST requires a token.");
+        if (!data.group) throw new Error("Must provide a group ID.");
+        if (!data.members || !Array.isArray(data.members))
             throw new Error("Must provide an array of members.");
         var { members } = data;
         members = members.map((m: Member | string) => m instanceof Member ? m.id : m);
@@ -641,22 +635,22 @@ class PKAPI {
                 ROUTES[this.#_version].REMOVE_GROUP_MEMBERS(data.group),
                 { token, body: members }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
     }
 
     async setGroupMembers(data: {
-		token?: string,
-		group: string,
-		members: string[] | Member[]
-	}) {
-        if(this.version < 2) throw new Error("Groups are only available for API version 2.");
+        token?: string,
+        group: string,
+        members: string[] | Member[];
+    }) {
+        if (this.version < 2) throw new Error("Groups are only available for API version 2.");
 
         var token = settings.store.token ?? data.token;
-        if(!token) throw new Error("POST requires a token.");
-        if(!data.group) throw new Error("Must provide a group ID.");
-        if(!data.members || !Array.isArray(data.members))
+        if (!token) throw new Error("POST requires a token.");
+        if (!data.group) throw new Error("Must provide a group ID.");
+        if (!data.members || !Array.isArray(data.members))
             throw new Error("Must provide an array of members.");
         var { members } = data;
         members = members.map((m: Member | string) => m instanceof Member ? m.id : m);
@@ -666,25 +660,25 @@ class PKAPI {
                 ROUTES[this.#_version].SET_GROUP_MEMBERS(data.group),
                 { token, body: members }
             );
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
     }
 
     /*
-	**			SWITCH FUNCTIONS
-	*/
+    **			SWITCH FUNCTIONS
+    */
 
     async createSwitch(data: RequestData<Partial<ISwitch>>) {
         var token = settings.store.token ?? data.token;
-        if(!token) throw new Error("POST requires a token.");
+        if (!token) throw new Error("POST requires a token.");
 
         var body: {
-			members: string[]
-		} = { members: [] };
+            members: string[];
+        } = { members: [] };
 
-        if(data.members) {
-            if(Array.isArray(data.members)) {
+        if (data.members) {
+            if (Array.isArray(data.members)) {
                 body.members = data.members;
             } else {
                 body.members = Object.values(data.members).map((m: IMember) => m.id);
@@ -692,11 +686,11 @@ class PKAPI {
         }
         try {
             var resp = await this.handle(ROUTES[this.#_version].ADD_SWITCH(), { token, body });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
-        if(this.#_version < 2) return;
+        if (this.#_version < 2) return;
 
         return new Switch(this, {
             ...resp.data,
@@ -705,54 +699,54 @@ class PKAPI {
     }
 
     async getSwitches(data: {
-		token?: string,
-		system?: string,
-		raw?: boolean,
-		before?: Date,
-		limit?: number,
-	}) {
+        token?: string,
+        system?: string,
+        raw?: boolean,
+        before?: Date,
+        limit?: number,
+    }) {
         var system = data.system ?? "@me";
         var token = settings.store.token ?? data.token;
         var { before, limit } = data;
         let switches: Switch[] = [];
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_SWITCHES(system, before, limit), { token });
-            if(!data.raw) {
+            if (!data.raw) {
                 var memb_resp = await this.handle(ROUTES[this.#_version].GET_MEMBERS(system), { token });
                 var membs = new Map(memb_resp.data.map((m: IMember) => [m.id, new Member(this, m)]));
-                for(const s of resp.data) {
+                for (const s of resp.data) {
                     const members = new Map();
-                    for(const m of s.members) if(membs.get(m)) members.set(m, membs.get(m));
+                    for (const m of s.members) if (membs.get(m)) members.set(m, membs.get(m));
                     s.members = members;
                     switches.push(new Switch(this, s));
                 }
             }
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
-        if(data.raw) {
+        if (data.raw) {
             switches = resp.data.map((s: ISwitch) => new Switch(this, s));
         }
 
-        if(this.#_version < 2) return switches;
+        if (this.#_version < 2) return switches;
         else return new Map(switches.map((s: ISwitch) => [s.id, s]));
     }
 
     async getSwitch(data: {
-		token?: string,
-		system?: string,
-		switch: string
-	}) {
-        if(this.version < 2) throw new Error("Individual switches are only available for API version 2.");
+        token?: string,
+        system?: string,
+        switch: string;
+    }) {
+        if (this.version < 2) throw new Error("Individual switches are only available for API version 2.");
 
         var token = settings.store.token ?? data.token;
         var system = data.system ?? "@me";
-        if(!data.switch) throw new Error("Must provide a switch ID.");
+        if (!data.switch) throw new Error("Must provide a switch ID.");
 
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_SWITCH(system, data.switch), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -763,18 +757,18 @@ class PKAPI {
     }
 
     async getFronters(data: {
-		token?: string,
-		system?: string
-	}) {
+        token?: string,
+        system?: string;
+    }) {
         var token = settings.store.token ?? data.token;
         var system = data.system ?? "@me";
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_FRONTERS(system), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
-        if(resp.status === 204) return undefined;
+        if (resp.status === 204) return undefined;
 
         return new Switch(this, {
             ...resp.data,
@@ -783,23 +777,23 @@ class PKAPI {
     }
 
     async patchSwitchTimestamp(data: {
-		token?: string,
-		switch: string,
-		timestamp: string | Date
-	}) {
-        if(this.version < 2) throw new Error("Individual switches are only available for API version 2.");
+        token?: string,
+        switch: string,
+        timestamp: string | Date;
+    }) {
+        if (this.version < 2) throw new Error("Individual switches are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("PATCH requires a token.");
-        if(!data.switch) throw new Error("Must provide a switch ID.");
-        if(!data.timestamp) throw new Error("Must provide a timestamp.");
+        if (!token) throw new Error("PATCH requires a token.");
+        if (!data.switch) throw new Error("Must provide a switch ID.");
+        if (!data.timestamp) throw new Error("Must provide a timestamp.");
 
         try {
             var sw = await this.handle(ROUTES[this.#_version].PATCH_SWITCH(data.switch), {
                 token,
                 body: { timestamp: data.timestamp }
             });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -810,27 +804,27 @@ class PKAPI {
     }
 
     async patchSwitchMembers(data: {
-		token?: string,
-		switch: string,
-		members?: string[]
-	}) {
-        if(this.version < 2) throw new Error("Individual switches are only available for API version 2.");
+        token?: string,
+        switch: string,
+        members?: string[];
+    }) {
+        if (this.version < 2) throw new Error("Individual switches are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("PATCH requires a token.");
-        if(!data.switch) throw new Error("Must provide a switch ID.");
+        if (!token) throw new Error("PATCH requires a token.");
+        if (!data.switch) throw new Error("Must provide a switch ID.");
 
         try {
             var s = data instanceof Switch ? data : new Switch(this, data);
             var sv = await s.verify();
-            if(sv.members && !Array.isArray(sv.members))
+            if (sv.members && !Array.isArray(sv.members))
                 throw new Error("Members must be an array or map if provided.");
 
             var sw = await this.handle(ROUTES[this.#_version].PATCH_SWITCH_MEMBERS(data.switch), {
                 token,
                 body: sv.members ?? []
             });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -841,18 +835,18 @@ class PKAPI {
     }
 
     async deleteSwitch(data: {
-		token?: string,
-		switch: string
-	}) {
-        if(this.version < 2) throw new Error("Individual switches are only available for API version 2.");
+        token?: string,
+        switch: string;
+    }) {
+        if (this.version < 2) throw new Error("Individual switches are only available for API version 2.");
 
         var token = settings.store.token || data.token;
-        if(!token) throw new Error("DELETE requires a token.");
-        if(!data.switch) throw new Error("Must provide a switch ID.");
+        if (!token) throw new Error("DELETE requires a token.");
+        if (!data.switch) throw new Error("Must provide a switch ID.");
 
         try {
             await this.handle(ROUTES[this.#_version].DELETE_SWITCH(data.switch), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -860,18 +854,18 @@ class PKAPI {
     }
 
     /*
-	** 			MISC FUNCTIONS
-	*/
+    ** 			MISC FUNCTIONS
+    */
 
     async getMessage(data: {
-		token?: string,
-		message: string
-	}) {
-        if(data.message == null) throw new Error("Must provide a message ID.");
+        token?: string,
+        message: string;
+    }) {
+        if (data.message == null) throw new Error("Must provide a message ID.");
         var token = settings.store.token || data.token;
         try {
             var resp = await this.handle(ROUTES[this.#_version].GET_MESSAGE(data.message), { token });
-        } catch(e) {
+        } catch (e) {
             throw e;
         }
 
@@ -879,35 +873,35 @@ class PKAPI {
     }
 
     /*
-	**			BASE STUFF
-	*/
+    **			BASE STUFF
+    */
 
     async handle(path: any, options?: {
-		token?: string,
-		headers?: any,
-		body?: any
-	}) {
+        token?: string,
+        headers?: any,
+        body?: any;
+    }) {
         var { route, method } = path;
         var headers = options?.headers || {};
         var request: {
-			method?: any,
-			headers?: any,
-			data?: any
-		} = { method, headers };
+            method?: any,
+            headers?: any,
+            data?: any;
+        } = { method, headers };
         var token = settings.store.token || options?.token;
-        if(token) request.headers.Authorization = token;
+        if (token) request.headers.Authorization = token;
 
-        if(options?.body) {
+        if (options?.body) {
             request.headers["content-type"] = "application/json";
             request.data = JSON.stringify(options.body);
         }
 
-        if(this.version === 1 && !this.#version_warning) {
+        if (this.version === 1 && !this.#version_warning) {
             console.warn(
                 "WARNING: API version 1 is considered officially deprecated. " +
-				"Support for this API version may be removed from this wrapper " +
-				"in a future version. Some methods may not fully work for v1 as well. "+
-				"USE v1 at your own risk!"
+                "Support for this API version may be removed from this wrapper " +
+                "in a future version. Some methods may not fully work for v1 as well. " +
+                "USE v1 at your own risk!"
             );
             this.#version_warning = true;
         }
@@ -915,7 +909,7 @@ class PKAPI {
         try {
             var resp = undefined;
             resp = await this.#inst(route, request);
-        } catch (e) {
+        } catch (e: any) {
             if (this.#debug) console.log(e);
             return e.response;
         }

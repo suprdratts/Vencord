@@ -1,4 +1,5 @@
 # PluralKit Integration For Vencord
+*Note: Renamed to "Plurally" because I (suprstarrd) will work on adding support for other plural bots too. The rest of this is the original README.*
 
 ## DISCLAIMER:
 ### NAME CHANGES CONFLICT WITH SHOWMEYOURNAME.

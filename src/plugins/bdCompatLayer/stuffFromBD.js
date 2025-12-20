@@ -387,6 +387,6 @@ const ReactUtils_filler = {
             render() { return this.state.hasError ? null : DiscordModules.React.createElement("div", { className: "react-wrapper", ref: this.ref }); }
         };
     }
-}
+};
 
-export { getModule, monkeyPatch, Patcher, ReactUtils_filler };
+export { getModule, monkeyPatch, Patcher, ReactUtils_filler, wrapFilter };

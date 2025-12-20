@@ -32,14 +32,13 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import axios from "axios";
 import validUrl from "valid-url";
 
 import API from "../index";
 import { verify } from "../utils";
 
 const KEYS: any = {
-    guild: { },
+    guild: {},
     proxying_enabled: {
         transform: (v?: any) => !!v
     },
@@ -52,12 +51,12 @@ const KEYS: any = {
     },
     avatar_url: {
         test: async (a: string) => {
-            if(!validUrl.isWebUri(a)) return false;
+            if (!validUrl.isWebUri(a)) return false;
             try {
-                var data = await axios.head(a);
-                if(data.headers["content-type"]?.startsWith("image")) return true;
+                var data = await fetch(a, { method: "HEAD" });
+                if (data.headers.get("content-type")?.startsWith("image")) return true;
                 return false;
-            } catch(e) { return false; }
+            } catch (e) { return false; }
         },
         err: "Avatar URL must be a valid image and less than 256 characters"
     },
@@ -90,11 +89,11 @@ export default class SystemGuildSettings implements ISystemGuildSettings {
     avatar_url?: string | null;
     display_name?: string | null;
 
-    constructor(api: API, data: Partial<SystemGuildSettings> = { }) {
+    constructor(api: API, data: Partial<SystemGuildSettings> = {}) {
         this.#api = api;
-        for(var k in data) {
-            if(KEYS[k]) {
-                if(KEYS[k].init) data[k] = KEYS[k].init(data[k]);
+        for (var k in data) {
+            if (KEYS[k]) {
+                if (KEYS[k].init) data[k] = KEYS[k].init(data[k]);
                 this[k] = data[k];
             }
         }
@@ -102,7 +101,7 @@ export default class SystemGuildSettings implements ISystemGuildSettings {
 
     async patch(token?: string) {
         var data = await this.#api.patchSystemGuildSettings({ ...this, token });
-        for(var k in data) if(KEYS[k]) this[k] = data[k];
+        for (var k in data) if (KEYS[k]) this[k] = data[k];
         return this;
     }
 
