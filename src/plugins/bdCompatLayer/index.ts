@@ -601,5 +601,7 @@ const thePlugin = {
 };
 
 export default definePlugin({
+    // @ts-expect-error
+    name: "BD Compatibility Layer",
     ...thePlugin
 } as PluginDef);
